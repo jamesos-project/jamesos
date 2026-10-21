@@ -1,0 +1,57 @@
+// >>> JamesOS name fix (begin)
+// The voice server sometimes hears "my name is James" twice and sends the name
+// "james my name is james". Keep only what comes after the LAST "my name is" (or
+// "name is", "names is", "i'm", "i am", "call me"), and drop a word said twice in a row.
+static std::string JamesCleanSpokenName(const std::string& heard)
+{
+  std::string lower = heard;
+  for (auto& ch : lower) {
+    if (ch >= 'A' && ch <= 'Z') { ch = (char)(ch - 'A' + 'a'); }
+  }
+  static const char* const kPhrases[] = {"my name is ", "my names is ", "my name's ", "name is ", "names is ",
+                                         "names ", "i'm ", "i am ", "call me "};
+  size_t cut = 0;
+  for (const char* p : kPhrases) {
+    const std::string phrase(p);
+    size_t at = lower.rfind(phrase);
+    // only whole words: "liam" must not count as "i am"
+    while (at != std::string::npos && at > 0 && lower[at - 1] != ' ') {
+      at = (at == 0) ? std::string::npos : lower.rfind(phrase, at - 1);
+    }
+    if (at != std::string::npos && at + phrase.size() > cut) {
+      cut = at + phrase.size();
+    }
+  }
+
+  // split what is left into words, skipping a word that repeats the one before it
+  std::vector<std::string> words;
+  std::string cur;
+  for (size_t i = cut; i <= heard.size(); ++i) {
+    const char c = (i < heard.size()) ? heard[i] : ' ';
+    if (c == ' ' || c == '.' || c == ',' || c == '!' || c == '?') {
+      if (!cur.empty()) {
+        std::string a = cur, b = words.empty() ? std::string() : words.back();
+        for (auto& ch : a) { if (ch >= 'A' && ch <= 'Z') { ch = (char)(ch - 'A' + 'a'); } }
+        for (auto& ch : b) { if (ch >= 'A' && ch <= 'Z') { ch = (char)(ch - 'A' + 'a'); } }
+        if (a != b) { words.push_back(cur); }
+        cur.clear();
+      }
+    } else {
+      cur += c;
+    }
+  }
+  if (words.empty()) {
+    return heard;   // nothing sensible left: keep what was heard
+  }
+  std::string name;
+  for (size_t i = 0; i < words.size() && i < 3; ++i) {   // a name is at most 3 words
+    if (!name.empty()) { name += " "; }
+    name += words[i];
+  }
+  if (name != heard) {
+    PRINT_NAMED_WARNING("BehaviorEnrollFace.JamesOS.NameFix", "'%s' -> '%s'", heard.c_str(), name.c_str());
+  }
+  return name;
+}
+// <<< JamesOS name fix (end)
+

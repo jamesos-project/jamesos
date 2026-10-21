@@ -1,0 +1,12 @@
+// JamesOS: Halloween backpack lights (used when the theme is Halloween and custom lights are on)
+const char* kPathToJamesHalloweenLights = "../../../../data/data/jamesos/lights-halloween/";
+bool JamesHalloweenLights()
+{
+  struct stat st;
+  if (stat("/data/data/jamesos/lights.off", &st) == 0) { return false; }
+  if (stat("/data/data/jamesos/lights-halloween/off.json", &st) != 0) { return false; }
+  std::ifstream in("/data/data/jamesos/theme");
+  std::string word;
+  if (in.is_open()) { std::getline(in, word); }
+  return word.find("halloween") != std::string::npos;
+}

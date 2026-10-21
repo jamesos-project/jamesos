@@ -1,0 +1,15 @@
+[Unit]
+Description=JamesOS update safety check (undo an update that was interrupted)
+RequiresMountsFor=/data
+# /data is mounted by WireOS's mount-data.service (v21: wait for it)
+Wants=mount-data.service
+After=local-fs.target mount-data.service
+Before=anki-robot.target
+
+[Service]
+Type=oneshot
+ExecStart=/data/jamesos-update/bin/jamesos-update boot
+TimeoutStartSec=900
+
+[Install]
+WantedBy=multi-user.target

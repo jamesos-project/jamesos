@@ -1,0 +1,245 @@
+#!/bin/sh
+# JamesOS updater (runs ON the robot). Put here by: ./jamesos.sh updater
+#
+#   jamesos-update version            which JamesOS version is installed
+#   jamesos-update ready              exit 0 = OK to update now, 3 = not now (prints why)
+#   jamesos-update install PKG VER SHA   install a JamesOS update safely:
+#                                     backup -> install -> check Vector starts -> roll back if not
+#   jamesos-update rollback           go back to the version from before the last update
+#   jamesos-update boot               (run by systemd at startup) finish/undo an interrupted update
+#   jamesos-update busy               exit 0 (and say so) if an update or rollback is running right now
+#
+# Only one update or rollback runs at a time (a lock in /data/jamesos-update/lock).
+#
+# Files: /data/jamesos-update/{version, failed_version, backup.tar.gz, backup.version, state, update.log}
+#        /anki/etc/jamesos-version  (line 1: version id, line 2: name like v21) - stamped by jamesos.sh
+
+U=/data/jamesos-update
+STATUS=/dev/shm/jamesos_status
+LOG=$U/update.log
+LOCK=$U/lock
+mkdir -p "$U"
+
+# ---- one at a time: install and rollback hold this lock ----
+lock_owner() { cat "$LOCK/pid" 2>/dev/null; }
+take_lock() {
+  if mkdir "$LOCK" 2>/dev/null; then echo $$ > "$LOCK/pid"; return 0; fi
+  old=$(lock_owner)
+  if [ -n "$old" ] && kill -0 "$old" 2>/dev/null; then return 1; fi
+  # left over from a power cut or a crash: nobody is using it
+  rm -rf "$LOCK"
+  mkdir "$LOCK" 2>/dev/null && echo $$ > "$LOCK/pid"
+}
+drop_lock() { [ "$(lock_owner)" = "$$" ] && rm -rf "$LOCK"; true; }
+need_lock() {
+  if ! take_lock; then
+    echo "Another JamesOS update or rollback is running on this robot right now. Wait for it to finish."
+    exit 8
+  fi
+  trap drop_lock EXIT INT TERM
+}
+
+log() {
+  echo "$*"
+  echo "$(date '+%Y-%m-%d %H:%M:%S') $*" >> "$LOG"
+  # keep the log small
+  if [ "$(wc -l < "$LOG")" -gt 400 ]; then tail -n 200 "$LOG" > "$LOG.tmp" && mv "$LOG.tmp" "$LOG"; fi
+}
+
+ROOT_WAS_RO=0
+root_rw() {
+  if awk '$2=="/" && $4 ~ /^ro/ {f=1} END {exit !f}' /proc/mounts; then
+    ROOT_WAS_RO=1
+    mount -o remount,rw /
+  fi
+}
+root_restore() {
+  sync
+  [ "$ROOT_WAS_RO" = 1 ] && mount -o remount,ro / 2>/dev/null
+  ROOT_WAS_RO=0
+  true
+}
+
+# replace everything in /anki with the contents of a .tar.gz that holds "anki/..."
+put_anki() {
+  rm -rf /anki/* /anki/.[!.]* 2>/dev/null
+  tar -C / -xzf "$1" || return 1
+  chown -R 0:2901 /anki 2>/dev/null
+  chmod -R ug+rwx /anki 2>/dev/null
+  sync
+  [ -x /anki/bin/vic-anim ] || [ -d /anki/bin ]
+}
+
+# the main Vector programs that are running right now
+running_units() {
+  for u in vic-anim vic-engine vic-robot; do
+    [ "$(systemctl is-active $u 2>/dev/null)" = active ] && echo $u
+  done
+}
+
+started_at() {
+  systemctl show -p ActiveEnterTimestampMonotonic "$1" 2>/dev/null | cut -d= -f2
+}
+
+# after a start: are these programs up, and still up (not crashing over and over)?
+units_healthy() {
+  [ -z "$1" ] && return 0
+  sleep 45
+  for u in $1; do
+    [ "$(systemctl is-active $u 2>/dev/null)" = active ] || { log "  $u is not running"; return 1; }
+  done
+  before=""
+  for u in $1; do before="$before $(started_at $u)"; done
+  sleep 30
+  after=""
+  for u in $1; do
+    [ "$(systemctl is-active $u 2>/dev/null)" = active ] || { log "  $u stopped"; return 1; }
+    after="$after $(started_at $u)"
+  done
+  [ "$before" = "$after" ] || { log "  a program restarted by itself (crash)"; return 1; }
+  return 0
+}
+
+restore_backup() {
+  if [ ! -f "$U/backup.tar.gz" ]; then
+    log "No backup to go back to."
+    return 1
+  fi
+  log "Going back to the version before the update ($(cat $U/backup.version 2>/dev/null || echo unknown))..."
+  # at startup ("boot") Vector's programs have not started yet, so don't touch them
+  [ "$1" = boot ] || systemctl stop anki-robot.target 2>/dev/null
+  root_rw
+  put_anki "$U/backup.tar.gz"
+  R=$?
+  root_restore
+  if [ -f "$U/backup.version" ]; then cp "$U/backup.version" "$U/version"; else rm -f "$U/version"; fi
+  sync
+  return $R
+}
+
+cmd_ready() {
+  up=$(cut -d. -f1 /proc/uptime)
+  if [ ! -f "$STATUS" ]; then
+    if [ "$up" -lt 120 ]; then echo "starting up"; return 3; fi
+    echo "ok (no charger info)"; return 0
+  fi
+  now=$(date +%s)
+  mt=$(stat -c %Y "$STATUS" 2>/dev/null || echo 0)
+  if [ $((now - mt)) -gt 60 ]; then
+    echo "ok (charger info is old)"; return 0
+  fi
+  if grep -q '^charger=1' "$STATUS"; then echo "ok (on charger)"; return 0; fi
+  echo "waiting for the charger"; return 3
+}
+
+cmd_install() {
+  PKG="$1"; VER="$2"; SHA="$3"
+  [ -f "$PKG" ] && [ -n "$VER" ] || { echo "usage: jamesos-update install PKG VERSION [SHA256]"; return 1; }
+
+  log "== JamesOS update to $VER =="
+  if [ -n "$SHA" ]; then
+    GOT=$(sha256sum "$PKG" | cut -d' ' -f1)
+    if [ "$GOT" != "$SHA" ]; then log "Download is broken (checksum does not match). Not installing."; rm -f "$PKG"; return 5; fi
+  fi
+  if ! tar -tzf "$PKG" 2>/dev/null | grep -q '^anki/bin/'; then
+    log "This is not a JamesOS update file. Not installing."; rm -f "$PKG"; return 5
+  fi
+
+  # same WireOS base? (JamesOS is built for one base, like 3.0.2.34 - same check "deploy" does)
+  PV=$(tar -xzOf "$PKG" anki/etc/version 2>/dev/null | cut -d. -f1-3)
+  RV=$(cut -d. -f1-3 /etc/os-version 2>/dev/null)
+  if [ -n "$PV" ] && [ -n "$RV" ] && [ "$PV" != "$RV" ]; then
+    log "This robot runs WireOS $RV but the update is built for $PV. Not installing."; rm -f "$PKG"; return 7
+  fi
+  PC=$(tar -xzOf "$PKG" anki/etc/victor-compat-version 2>/dev/null)
+  RC=$(cat /etc/victor-compat-version 2>/dev/null)
+  if [ -n "$PC" ] && [ -n "$RC" ] && [ "$PC" != "$RC" ]; then
+    log "This robot's system (compat $RC) doesn't match the update (compat $PC). Not installing."; rm -f "$PKG"; return 7
+  fi
+
+  # room for a backup of the current version? (about the same size as the update)
+  need=$(( $(du -k "$PKG" | cut -f1) * 2 + 51200 ))
+  free=$(df -k /data | tail -1 | awk '{print $(NF-2)}')
+  if [ "$free" -lt "$need" ]; then
+    log "Not enough free space on /data (free ${free}KB, need ${need}KB). Not installing."; rm -f "$PKG"; return 6
+  fi
+
+  CHECK=$(running_units | tr '\n' ' ')
+
+  log "1/4 Backing up the current version..."
+  if tar -C / -czf "$U/backup.tmp.tar.gz" anki; then
+    mv "$U/backup.tmp.tar.gz" "$U/backup.tar.gz"
+    if [ -f "$U/version" ]; then cp "$U/version" "$U/backup.version"; else echo "before-auto-update" > "$U/backup.version"; fi
+  else
+    rm -f "$U/backup.tmp.tar.gz"; log "Backup failed. Not installing."; rm -f "$PKG"; return 6
+  fi
+
+  log "2/4 Installing (Vector's face goes dark for a minute or two)..."
+  echo "installing $VER" > "$U/state"; sync
+  systemctl stop anki-robot.target
+  root_rw
+  if ! put_anki "$PKG"; then
+    root_restore
+    log "Install failed."
+    restore_backup; echo "$VER" > "$U/failed_version"; rm -f "$U/state" "$PKG"
+    systemctl start anki-robot.target
+    return 4
+  fi
+  root_restore
+  echo "$VER" > "$U/version"
+  echo "verifying $VER" > "$U/state"; sync
+  rm -f "$PKG"
+
+  log "3/4 Starting Vector and checking he runs OK (about 75 seconds)..."
+  systemctl start anki-robot.target
+  if units_healthy "$CHECK"; then
+    rm -f "$U/state" "$U/failed_version"; sync
+    # JamesOS keep (v21+) came with this version: start it now, no reboot needed
+    systemctl start jamesos-keep.service 2>/dev/null
+    log "4/4 Done! JamesOS $VER is installed."
+    return 0
+  fi
+
+  log "The new version did not start properly."
+  restore_backup
+  echo "$VER" > "$U/failed_version"
+  rm -f "$U/state"; sync
+  systemctl start anki-robot.target
+  log "Back on the old version. (This update will be skipped until you publish a new one.)"
+  return 4
+}
+
+case "$1" in
+  version)
+    # the version is stamped into the JamesOS programs themselves (survives CLEAR OUT SOUL);
+    # older builds only have the copy in /data
+    v=$(head -n 1 /anki/etc/jamesos-version 2>/dev/null)
+    [ -n "$v" ] || v=$(cat "$U/version" 2>/dev/null)
+    echo "${v:-none}"
+    ;;
+  ready)    cmd_ready ;;
+  install)  shift; need_lock; cmd_install "$@" ;;
+  busy)
+    o=$(lock_owner)
+    if [ -n "$o" ] && kill -0 "$o" 2>/dev/null; then echo "busy (update running)"; exit 0; fi
+    exit 1
+    ;;
+  rollback)
+    need_lock
+    restore_backup && rm -f "$U/state" && systemctl start anki-robot.target && log "Rolled back."
+    ;;
+  boot)
+    rm -rf "$LOCK"   # nothing survives a restart, so an old lock means nothing
+    rm -f "$U"/incoming-*.tar.gz "$U"/incoming-*.tar.gz.tmp   # half-sent update files
+    # Vector lost power or rebooted in the middle of an update: go back to the safe version
+    if [ -f "$U/state" ]; then
+      set -- $(cat "$U/state")
+      log "An update to $2 was interrupted while $1. Restoring the previous version."
+      restore_backup boot
+      echo "${2:-unknown}" > "$U/failed_version"
+      rm -f "$U/state"; sync
+    fi
+    true
+    ;;
+  *) sed -n '2,14p' "$0" ;;
+esac

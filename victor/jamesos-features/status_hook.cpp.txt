@@ -1,0 +1,16 @@
+  // JamesOS: share battery / charger / local time with the face effects (about once a second)
+  {
+    static u32 jamesTick = 0;
+    if ((jamesTick++ % 30) == 0) {
+      struct tm jamesLt;
+      const bool jamesHaveTime = WallTime::getInstance()->GetApproximateLocalTime(jamesLt);
+      ProceduralFaceDrawer::JamesSetStatus(
+        state.batteryVoltage, (s32)state.battTemp_C,
+        (state.status & (uint32_t)RobotStatusFlag::IS_ON_CHARGER) != 0,
+        (state.status & (uint32_t)RobotStatusFlag::IS_CHARGING) != 0,
+        jamesHaveTime ? jamesLt.tm_hour : -1,
+        jamesHaveTime ? jamesLt.tm_min : 0,
+        jamesHaveTime ? (jamesLt.tm_year + 1900) * 10000 + (jamesLt.tm_mon + 1) * 100 + jamesLt.tm_mday : 0);
+    }
+  }
+

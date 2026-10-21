@@ -1,0 +1,21 @@
+  // JamesOS mood colors: share Vector's mood with vic-anim every 2 seconds
+  // (only while the MODS menu has MOOD switched on). /dev/shm is in memory, not flash.
+  {
+    static float sJamesLastMoodWrite_s = 0.0f;
+    if ((currentTime - sJamesLastMoodWrite_s) > 2.0f) {
+      sJamesLastMoodWrite_s = currentTime;
+      struct stat jamesSt;
+      if (stat("/data/data/jamesos/mood.on", &jamesSt) == 0) {
+        {
+          std::ofstream jamesOut("/dev/shm/jamesos_mood.tmp", std::ios::trunc);
+          if (jamesOut.is_open()) {
+            jamesOut << GetEmotion(EmotionType::Happy).GetValue() << " "
+                     << GetEmotion(EmotionType::Confident).GetValue() << " "
+                     << GetEmotion(EmotionType::Stimulated).GetValue() << "\n";
+          }
+        }
+        std::rename("/dev/shm/jamesos_mood.tmp", "/dev/shm/jamesos_mood");
+      }
+    }
+  }
+

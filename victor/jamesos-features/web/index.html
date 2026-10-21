@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>JamesOS Control</title>
+<style>
+  :root {
+    --bg: #0b0b11; --card: #15151e; --card2: #1b1b26; --line: #272735;
+    --text: #ececf4; --muted: #8d8da3; --accent: #b6a1ff; --accent-ink: #160f2e;
+    --good: #5fd38d; --warn: #f0b44c; --bad: #ff6b6b; --gold: #ffc828;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  .wrap { max-width: 1040px; margin: 0 auto; padding: 20px 16px 48px; }
+  header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 18px; }
+  .brand { display: flex; align-items: center; gap: 10px; }
+  .brand h1 { margin: 0; font-size: 22px; letter-spacing: .5px; }
+  .brand small { color: var(--muted); display: block; font-size: 12.5px; }
+  .spark { width: 28px; height: 28px; }
+  .top-right { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 13px; }
+  button { font: inherit; color: inherit; cursor: pointer; }
+  .btn { background: var(--card2); border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; }
+  .btn:hover { border-color: #3a3a4d; }
+  .btn.danger { color: var(--bad); }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); gap: 14px; align-items: start; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 16px; }
+  .card.all { margin-bottom: 14px; }
+  .card.offline { opacity: .55; }
+  .head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .name { font-weight: 650; font-size: 17px; }
+  .sub { color: var(--muted); font-size: 12.5px; }
+  .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: 1px; }
+  .chip { font-size: 12px; padding: 3px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); white-space: nowrap; }
+  .chip.new { border-color: var(--warn); color: var(--warn); }
+  .chip.ok { border-color: #2f5d43; color: var(--good); }
+  .stats { display: grid; grid-template-columns: 1.4fr 1fr 1fr 1fr; gap: 8px; margin: 14px 0 6px; }
+  .stat { background: var(--card2); border-radius: 12px; padding: 9px 10px; }
+  .stat b { display: block; font-size: 18px; font-variant-numeric: tabular-nums; }
+  .stat span { color: var(--muted); font-size: 11.5px; text-transform: uppercase; letter-spacing: .4px; }
+  .bar { height: 5px; background: #2a2a38; border-radius: 3px; margin-top: 6px; overflow: hidden; }
+  .bar i { display: block; height: 100%; border-radius: 3px; }
+  .rows { margin-top: 10px; }
+  .row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 0; border-top: 1px solid var(--line); }
+  .row:first-child { border-top: 0; }
+  .label { color: var(--muted); font-size: 13.5px; min-width: 88px; }
+  .seg { display: inline-flex; flex-wrap: wrap; justify-content: flex-end; gap: 4px; }
+  .seg button { background: var(--card2); border: 1px solid var(--line); border-radius: 9px; padding: 5px 10px; font-size: 13px; }
+  .seg button.on { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; }
+  .seg button:disabled { opacity: .5; cursor: default; }
+  .note { color: var(--muted); font-size: 11.5px; margin-top: 2px; }
+  details { margin-top: 10px; border-top: 1px solid var(--line); padding-top: 10px; }
+  summary { cursor: pointer; color: var(--muted); font-size: 13.5px; list-style: none; display: flex; justify-content: space-between; }
+  summary::-webkit-details-marker { display: none; }
+  .badges { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 6px; margin-top: 10px; }
+  .badge { border: 1px solid var(--line); border-radius: 10px; padding: 7px 9px; font-size: 12px; }
+  .badge b { display: block; font-size: 12.5px; }
+  .badge.got { border-color: #6b5a12; background: rgba(255, 200, 40, .08); }
+  .badge.got b::before { content: "\1F3C6  "; }
+  .badge.secret:not(.got) { border-style: dashed; }
+  .badge:not(.got) { color: var(--muted); }
+  .actions { display: flex; gap: 8px; margin-top: 12px; }
+  .toast { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); background: #24243a; border: 1px solid #3a3a55;
+           padding: 10px 14px; border-radius: 12px; font-size: 14px; opacity: 0; transition: opacity .2s; pointer-events: none; max-width: 90vw; }
+  .toast.show { opacity: 1; }
+  .empty { color: var(--muted); padding: 30px; text-align: center; }
+  @media (max-width: 420px) {
+    .stats { grid-template-columns: 1fr 1fr; }
+    .label { min-width: 0; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <svg class="spark" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 1.5l2.2 7.3 7.3 2.2-7.3 2.2L12 20.5l-2.2-7.3L2.5 11l7.3-2.2z" fill="#b6a1ff"/></svg>
+      <div><h1>JamesOS</h1><small>Control page</small></div>
+    </div>
+    <div class="top-right"><span id="when">loading…</span><button class="btn" id="refresh">Refresh</button></div>
+  </header>
+  <div id="all"></div>
+  <div class="grid" id="robots"><div class="empty">Looking for your robots…</div></div>
+</div>
+<div class="toast" id="toast"></div>
+<script>
+const CONTROLS = [
+  ["stars", "Stars", [["rainbow","Rainbow"],["white","White"],["shooting","Shooting"],["gold","Gold","STREAK_100"],["off","Off"]]],
+  ["petfx", "When petted", [["galaxy","Galaxy"],["off","Off"]]],
+  ["mood", "Mood colors", [["on","On"],["off","Off"]]],
+  ["sleepy", "Sleepy eyes", [["on","On"],["off","Off"]], "Tired eyes when the battery is low"],
+  ["theme", "Theme", [["auto","Auto holidays"],["normal","Normal"],["halloween","Halloween"],["christmas","Christmas"],["lunar","Chinese New Year"],
+                      ["newyear","New Year"],["valentine","Valentine's"],["stpatrick","St Patrick's"],["aprilfools","April Fools"],
+                      ["easter","Easter"],["mothersday","Mother's Day"],["fireworks","Fireworks (July)"],["thanksgiving","Thanksgiving"],
+                      ["glitch","Glitch","SECRET_ROOM"],["retro","Retro green","SECRET_ROOM"],["galaxymax","Galaxy Max","SECRET_ROOM"]],
+    "Auto holidays picks the theme by date, and a banner counts down the last 7 days before each holiday"],
+  ["holidays", "Holidays", [["all","All"],["western","Western"],["off","Off"]], "Which holidays Auto and the countdown use (All includes Chinese New Year)"],
+  ["funeyes", "Fun eyes", [["auto","Auto"],["on","On"],["off","Off"]], "Halloween pumpkin eyes. Auto = on Halloween night, On = all of Halloween (Oct 15-31)"],
+  ["sleep", "Sleep screen", [["stars","Stars"],["clock","Clock"],["both","Both"],["off","Off"]]],
+  ["lights", "Back lights", [["custom","JamesOS"],["normal","Normal"]], "Changing this restarts him (about 30 s)"],
+];
+let data = null, busy = false;
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+function toast(msg) { const t = $("#toast"); t.textContent = msg; t.classList.add("show"); clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove("show"), 3200); }
+
+async function load(fresh) {
+  try {
+    const r = await fetch("/api/state" + (fresh ? "?fresh=1" : ""));
+    data = await r.json(); render();
+  } catch (e) { $("#when").textContent = "can't reach the JamesOS page"; }
+}
+
+function controls(target, settings, badges) {
+  // options with a badge key only show up once that badge is unlocked (gold sparkles, secret themes)
+  const has = k => (badges || []).some(b => b.got && b.key === k);
+  return CONTROLS.map(([key, label, allOpts, note]) => {
+    const opts = allOpts.filter(o => !o[2] || has(o[2]) || (settings && settings[key] === o[0]));
+    const cur = settings ? settings[key] : null;
+    const disabled = key === "lights" && settings && cur === "not sent";
+    return `<div class="row"><div><div class="label">${label}</div>${note ? `<div class="note">${note}</div>` : ""}</div>
+      <div class="seg">${opts.map(([v, t]) => `<button ${disabled ? "disabled" : ""} class="${cur === v ? "on" : ""}"
+        onclick="setting('${target}','${key}','${v}')">${t}</button>`).join("")}</div></div>`;
+  }).join("");
+}
+
+function batteryColor(p) { return p == null ? "#555" : p < 20 ? "var(--bad)" : p < 45 ? "var(--warn)" : "var(--good)"; }
+
+function robotCard(r) {
+  if (!r.online) {
+    return `<div class="card offline"><div class="head"><div><div class="name"><span class="dot" style="background:#555"></span>${esc(r.name)}</div>
+      <div class="sub">${esc(r.ip)} · offline (turned off, asleep or a new IP)</div></div></div></div>`;
+  }
+  const pub = data.published;
+  const ver = r.version ? `<span class="chip ${pub && r.version !== pub ? "new" : "ok"}" title="JamesOS version">${pub && r.version !== pub ? "update waiting" : "up to date"}</span>`
+                        : `<span class="chip">no version yet</span>`;
+  const p = r.pct;
+  const got = r.badges.filter(b => b.got).length;
+  return `<div class="card">
+    <div class="head"><div><div class="name"><span class="dot" style="background:var(--good)"></span>${esc(r.name)}</div>
+      <div class="sub">${esc(r.host)} · ${esc(r.ip)} · ${esc(r.version || "—")}</div></div>${ver}</div>
+    <div class="stats">
+      <div class="stat"><span>Battery</span><b>${p == null ? "—" : p + "%"}</b>
+        <div class="bar"><i style="width:${p ?? 0}%;background:${batteryColor(p)}"></i></div>
+        <div class="note">${r.charger == null ? "no info" : r.charger ? "on charger" : "off charger"}${r.volts ? " · " + r.volts.toFixed(2) + " V" : ""}</div></div>
+      <div class="stat"><span>Today</span><b>${r.pets_today}</b></div>
+      <div class="stat"><span>All pets</span><b>${r.total}</b></div>
+      <div class="stat"><span>Streak</span><b>${r.streak}d</b></div>
+    </div>
+    <div class="rows">${controls(r.ip, r.settings, r.badges)}</div>
+    <details><summary><span>Badges${got === r.badges.length ? " · MASTER 🏆" : ""}</span><span>${got} of ${r.badges.length} unlocked ▾</span></summary>
+      <div class="badges">${r.badges.map(b => `<div class="badge ${b.got ? "got" : ""} ${b.secret ? "secret" : ""}"><b>${esc(b.name)}</b>${b.got ? (b.date ? "Got it " + b.date : "Got it!") : esc(b.hint)}</div>`).join("")}</div>
+    </details>
+    <div class="actions"><button class="btn" onclick="action('${r.ip}','restart')">Restart</button>
+      <button class="btn" onclick="action('${r.ip}','update')">Update now</button>
+      <button class="btn danger" onclick="action('${r.ip}','poweroff')">Power off</button></div>
+  </div>`;
+}
+
+function sharedBadges(robots) {
+  return robots.length ? robots[0].badges.filter(b => b.got && robots.every(r => r.badges.some(x => x.got && x.key === b.key))) : [];
+}
+
+function render() {
+  $("#when").textContent = "updated " + data.time;
+  const online = data.robots.filter(r => r.online);
+  $("#all").innerHTML = online.length > 1 ? `<div class="card all"><div class="head"><div><div class="name">All robots</div>
+      <div class="sub">Changes every robot that is on (${online.length} of ${data.robots.length})</div></div></div>
+      <div class="rows">${controls("all", null, sharedBadges(online))}</div></div>` : "";
+  $("#robots").innerHTML = data.robots.length ? data.robots.map(robotCard).join("")
+    : `<div class="empty">No robots yet. Add one with <code>./jamesos.sh robots add IP name</code></div>`;
+}
+
+async function post(url, body) {
+  if (busy) return; busy = true;
+  try {
+    const r = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json", "X-JamesOS": "1" }, body: JSON.stringify(body) });
+    const j = await r.json();
+    if (j.error) { toast(j.error); return; }
+    const bad = j.results.filter(x => !x.ok);
+    const names = ip => (data.robots.find(r => r.ip === ip) || {}).name || ip;
+    toast(bad.length ? bad.map(x => names(x.ip) + ": " + x.msg).join(" · ") : (j.results[0].msg || "Done"));
+    await load(true);
+  } finally { busy = false; }
+}
+function setting(target, key, value) { post("/api/set", { target, setting: key, value }); }
+function action(target, act) {
+  if (act === "restart" && !confirm("Restart Vector's programs? (about 30 seconds)")) return;
+  if (act === "update" && !confirm("Update this robot now, even off the charger? (3-5 minutes)")) return;
+  if (act === "poweroff" && !confirm("Turn this robot off? Press his back button to turn him on again.")) return;
+  post("/api/action", { target, action: act });
+}
+$("#refresh").onclick = () => load(true);
+load(false);
+setInterval(() => { if (!busy) load(false); }, 15000);
+</script>
+</body>
+</html>

@@ -1,0 +1,172 @@
+// ============================================================================
+// JamesOS starlight eyes
+// Little sparkles that twinkle inside Vector's eyes.
+// Settings live in /data/data/jamesos/starlight.conf on the robot. If that file
+// doesn't exist (or /data/data/jamesos/starlight.off exists), starlight is off and
+// the face is exactly like normal WireOS. Both are re-checked about every 2 seconds,
+// so changes (from jamesos.sh or the MODS menu) apply without a restart.
+// ============================================================================
+namespace {
+  const char* kJamesStarlightFile    = "/data/data/jamesos/starlight.conf";
+  const char* kJamesStarlightOffFlag = "/data/data/jamesos/starlight.off";
+  const u8    kJamesStarMaskThreshold = 64; // only draw where the eye is lit
+
+  struct JamesStarlightConfig {
+    bool enabled  = false;
+    s32  maxStars = 3;      // how many sparkles at once
+    f32  chance   = 0.04f;  // chance per frame (~30 frames/sec) to start a new sparkle
+    s32  life     = 24;     // how many frames one sparkle lasts
+    s32  size     = 2;      // arm length of the sparkle (1-4 pixels)
+    u8   r = 255, g = 255, b = 255;
+  };
+
+  struct JamesStar {
+    s32 x, y, age, life;
+  };
+
+  std::string JamesTrim(const std::string& s)
+  {
+    const auto start = s.find_first_not_of(" \t\r\n");
+    if (start == std::string::npos) { return ""; }
+    const auto end = s.find_last_not_of(" \t\r\n");
+    return s.substr(start, end - start + 1);
+  }
+
+  JamesStarlightConfig JamesLoadStarlightConfig()
+  {
+    JamesStarlightConfig c;
+    std::ifstream in(kJamesStarlightFile);
+    if (!in.is_open()) {
+      return c; // no file = off
+    }
+    c.enabled = true; // file exists = on (unless it says enabled=0)
+    std::string line;
+    while (std::getline(in, line)) {
+      line = JamesTrim(line);
+      if (line.empty() || line[0] == '#') { continue; }
+      const auto eq = line.find('=');
+      if (eq == std::string::npos) { continue; }
+      const std::string key = JamesTrim(line.substr(0, eq));
+      const std::string val = JamesTrim(line.substr(eq + 1));
+      if (key == "enabled") {
+        c.enabled = (std::atoi(val.c_str()) != 0);
+      } else if (key == "stars") {
+        c.maxStars = Util::Clamp(std::atoi(val.c_str()), 0, 20);
+      } else if (key == "chance") {
+        c.chance = Util::Clamp((f32)std::atof(val.c_str()), 0.f, 1.f);
+      } else if (key == "life") {
+        c.life = Util::Clamp(std::atoi(val.c_str()), 4, 150);
+      } else if (key == "size") {
+        c.size = Util::Clamp(std::atoi(val.c_str()), 1, 4);
+      } else if (key == "color") {
+        int r = 255, g = 255, b = 255;
+        if (std::sscanf(val.c_str(), "%d , %d , %d", &r, &g, &b) == 3) {
+          c.r = (u8)Util::Clamp(r, 0, 255);
+          c.g = (u8)Util::Clamp(g, 0, 255);
+          c.b = (u8)Util::Clamp(b, 0, 255);
+        }
+      }
+    }
+    return c;
+  }
+
+  // Brighten one pixel toward the sparkle color (never darkens the eye)
+  void JamesDrawStarPixel(Vision::ImageRGB565& output, Vision::Image& mask,
+                          s32 x, s32 y, f32 intensity, const JamesStarlightConfig& cfg)
+  {
+    if (x < 0 || y < 0 ||
+        y >= output.GetNumRows() || x >= output.GetNumCols() ||
+        y >= mask.GetNumRows()   || x >= mask.GetNumCols()) {
+      return;
+    }
+    if (mask.GetRow(y)[x] < kJamesStarMaskThreshold) {
+      return; // outside the eye (or the eye is blinking) - don't draw
+    }
+    intensity = Util::Clamp(intensity, 0.f, 1.f);
+    Vision::PixelRGB565& px = output.GetRow(y)[x];
+    const u8 R = std::max<u8>(px.r(), (u8)(cfg.r * intensity));
+    const u8 G = std::max<u8>(px.g(), (u8)(cfg.g * intensity));
+    const u8 B = std::max<u8>(px.b(), (u8)(cfg.b * intensity));
+    px.SetValue(R, G, B);
+  }
+} // anonymous namespace
+
+bool ProceduralFaceDrawer::ApplyStarlight(Vision::ImageRGB565& output, bool dirty)
+{
+  static JamesStarlightConfig cfg;
+  static std::vector<JamesStar> stars;
+  static std::minstd_rand gen(0x1A3E5u);
+  static u32 frameCount = 0;
+  static long lastMtime = -1; // -1 = never checked, 0 = no file
+  static bool lastOffFlag = false;
+
+  // Re-check the settings file and the off switch about every 2 seconds
+  if ((frameCount++ % 60) == 0) {
+    struct stat st;
+    const long mtime = (stat(kJamesStarlightFile, &st) == 0) ? (long)st.st_mtime : 0;
+    const bool offFlag = (stat(kJamesStarlightOffFlag, &st) == 0);
+    if (mtime != lastMtime || offFlag != lastOffFlag) {
+      lastMtime = mtime;
+      lastOffFlag = offFlag;
+      cfg = JamesLoadStarlightConfig();
+      if (offFlag) {
+        cfg.enabled = false;
+      }
+      stars.clear();
+    }
+  }
+
+  if (!cfg.enabled || cfg.maxStars <= 0) {
+    return dirty;
+  }
+
+  Vision::Image& mask = _faceCache.img8[_faceCache.finalFace];
+  const s32 w = _faceColMax - _faceColMin + 1;
+  const s32 h = _faceRowMax - _faceRowMin + 1;
+  if (w < 4 || h < 4 || mask.IsEmpty() || output.IsEmpty()) {
+    stars.clear();
+    return dirty;
+  }
+
+  std::uniform_real_distribution<f32> uni(0.f, 1.f);
+
+  // Maybe start a new sparkle somewhere inside an eye
+  if ((s32)stars.size() < cfg.maxStars && uni(gen) < cfg.chance) {
+    for (int tries = 0; tries < 10; ++tries) {
+      const s32 x = Util::Clamp(_faceColMin + (s32)(uni(gen) * w), 0, mask.GetNumCols() - 1);
+      const s32 y = Util::Clamp(_faceRowMin + (s32)(uni(gen) * h), 0, mask.GetNumRows() - 1);
+      if (mask.GetRow(y)[x] >= kJamesStarMaskThreshold) {
+        const s32 life = std::max<s32>(4, cfg.life / 2 + (s32)(uni(gen) * cfg.life));
+        stars.push_back({x, y, 0, life});
+        break;
+      }
+    }
+  }
+
+  // Draw each sparkle: a little "+" that fades in and out
+  for (auto it = stars.begin(); it != stars.end(); ) {
+    JamesStar& s = *it;
+    const f32 t = (f32)s.age / (f32)s.life;
+    const f32 bright = std::sin(t * 3.14159265f);
+
+    JamesDrawStarPixel(output, mask, s.x, s.y, bright, cfg);
+    for (s32 k = 1; k <= cfg.size; ++k) {
+      const f32 armBright = bright * (1.f - (f32)k / (f32)(cfg.size + 1));
+      JamesDrawStarPixel(output, mask, s.x + k, s.y, armBright, cfg);
+      JamesDrawStarPixel(output, mask, s.x - k, s.y, armBright, cfg);
+      JamesDrawStarPixel(output, mask, s.x, s.y + k, armBright, cfg);
+      JamesDrawStarPixel(output, mask, s.x, s.y - k, armBright, cfg);
+    }
+
+    ++s.age;
+    if (s.age >= s.life) {
+      it = stars.erase(it);
+    } else {
+      ++it;
+    }
+  }
+
+  return true;
+}
+// ============================== end JamesOS starlight ==============================
+

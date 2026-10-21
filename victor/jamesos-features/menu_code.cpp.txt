@@ -1,0 +1,551 @@
+
+  // >>> JamesOS MODS menu (begin)
+  // JamesOS menus (v18), in the classic "CONFIGURATION PAGE 1" style:
+  //   main screen:   EXIT / EXTRAS / CONF
+  //   EXTRAS:        BACK, STARS, PETTING, MOOD, SLEEPY EYES, THEME, HOLIDAYS, SLEEP (lift = next choice), STATUS, BADGES
+  //   CONF:          EXIT, SELF TEST, RESTART, BACKPACK LIGHTS, DATA, CLEAR OUT SOUL, ABOUT JAMESOS
+  // Choices are small files in /data/data/jamesos, so they survive reboots and deploys.
+  {
+    static const std::string kJamesDir       = "/data/data/jamesos";
+    static const std::string kStarConf       = kJamesDir + "/starlight.conf";
+    static const std::string kStarOffFlag    = kJamesDir + "/starlight.off";
+    static const std::string kStarStyle      = kJamesDir + "/starlight.style";
+    static const std::string kHeartsOnFlag   = kJamesDir + "/hearts.on";
+    static const std::string kMoodOnFlag     = kJamesDir + "/mood.on";
+    static const std::string kSleepyOffFlag  = kJamesDir + "/sleepy.off";
+    static const std::string kPetFxFile      = kJamesDir + "/petfx";
+    static const std::string kThemeFile      = kJamesDir + "/theme";
+    static const std::string kHolidaysFile   = kJamesDir + "/holidays";   // all (default, with Chinese New Year) | western | off
+    static const std::string kFunEyesOffFlag = kJamesDir + "/funeyes.off"; // v23: no pumpkin / heart / flag / year eyes
+    static const std::string kFunEyesAutoFlag = kJamesDir + "/funeyes.auto"; // v24: only on the holiday itself
+    static const std::string kSleepFile      = kJamesDir + "/sleepscreen";
+    static const std::string kLightsOffFlag  = kJamesDir + "/lights.off";
+    static const std::string kJamesLightsOff = "/data/data/customBackpackLights/off.json";
+
+    auto exists = [](const std::string& f) { return Util::FileUtils::FileExists(f); };
+    auto makeDir = []() { mkdir(kJamesDir.c_str(), 0777); };
+    auto readWord = [](const std::string& f) {
+      std::ifstream in(f);
+      std::string word;
+      if (in.is_open()) { std::getline(in, word); }
+      return word;
+    };
+    auto has = [](const std::string& text, const char* word) { return text.find(word) != std::string::npos; };
+    auto upper = [](std::string s) {
+      for (auto& c : s) { if (c >= 'a' && c <= 'z') { c = (char)(c - 'a' + 'A'); } }
+      return s;
+    };
+
+    // ---- current state of each feature (lower-case words, same as the files / jamesos.sh) ----
+    auto starsWord = [exists, readWord, has]() {
+      if (!exists(kStarConf) || exists(kStarOffFlag)) { return std::string("off"); }
+      const std::string w = readWord(kStarStyle);
+      if (has(w, "rainbow"))  { return std::string("rainbow"); }
+      if (has(w, "shooting")) { return std::string("shooting"); }
+      if (has(w, "gold"))     { return std::string("gold"); }
+      return std::string("white");
+    };
+    auto petWord = [exists]() {   // v23: galaxy or off (the hearts mode was removed)
+      return std::string(exists(kHeartsOnFlag) ? "galaxy" : "off");
+    };
+    auto moodOn   = [exists]() { return exists(kMoodOnFlag); };
+    auto sleepyOn = [exists]() { return !exists(kSleepyOffFlag); };
+    auto funEyesWord = [exists]() {   // v24: auto | on | off
+      if (exists(kFunEyesOffFlag))  { return std::string("off"); }
+      if (exists(kFunEyesAutoFlag)) { return std::string("auto"); }
+      return std::string("on");
+    };
+    auto themeWord = [readWord, has]() {
+      const std::string w = readWord(kThemeFile);
+      if (has(w, "halloween")) { return std::string("halloween"); }
+      if (has(w, "christmas")) { return std::string("christmas"); }
+      if (has(w, "lunar"))     { return std::string("lunar"); }
+      if (has(w, "auto"))      { return std::string("auto"); }
+      if (has(w, "glitch"))    { return std::string("glitch"); }
+      if (has(w, "retro"))     { return std::string("retro"); }
+      if (has(w, "galaxymax")) { return std::string("galaxymax"); }
+      // v22 holiday themes
+      for (const char* t : {"newyear", "valentine", "stpatrick", "aprilfools", "easter", "mothersday", "fireworks", "thanksgiving"}) {
+        if (has(w, t)) { return std::string(t); }
+      }
+      if (has(w, "normal")) { return std::string("normal"); }
+      return std::string("auto");   // v22: no choice yet = AUTO HOLIDAYS
+    };
+    auto holidaysWord = [readWord, has]() {
+      const std::string w = readWord(kHolidaysFile);
+      if (has(w, "western")) { return std::string("western"); }
+      if (has(w, "off"))     { return std::string("off"); }
+      return std::string("all");
+    };
+    auto themeName = [upper](const std::string& theme) {
+      if (theme == "lunar")     { return std::string("CHINESE NY"); }
+      if (theme == "galaxymax") { return std::string("GALAXY MAX"); }
+      if (theme == "auto")         { return std::string("AUTO HOLIDAYS"); }
+      if (theme == "newyear")      { return std::string("NEW YEAR"); }
+      if (theme == "stpatrick")    { return std::string("ST PATRICK"); }
+      if (theme == "aprilfools")   { return std::string("APRIL FOOLS"); }
+      if (theme == "mothersday")   { return std::string("MOTHERS DAY"); }
+      return upper(theme);
+    };
+    // easter egg rewards
+    auto goldUnlocked   = []() { return ProceduralFaceDrawer::JamesHasBadge("STREAK_100"); };   // LOYAL FRIEND
+    auto secretUnlocked = []() { return ProceduralFaceDrawer::JamesHasBadge("SECRET_ROOM"); };
+    auto sleepWord = [readWord, has]() {
+      const std::string w = readWord(kSleepFile);
+      if (has(w, "stars")) { return std::string("stars"); }
+      if (has(w, "clock")) { return std::string("clock"); }
+      if (has(w, "both"))  { return std::string("both"); }
+      return std::string("off");
+    };
+    auto lightsSent  = [exists]() { return exists(kJamesLightsOff); };
+    auto lightsOn    = [exists, lightsSent]() { return lightsSent() && !exists(kLightsOffFlag); };
+    auto lightsState = [lightsSent, lightsOn]() {
+      return std::string(lightsOn() ? "CUSTOM" : (lightsSent() ? "NORMAL" : "NOT SENT"));
+    };
+    auto battText = []() {
+      f32 volts = 0.f; s32 tempC = 0; bool onCharger = false, charging = false;
+      ProceduralFaceDrawer::JamesGetStatus(volts, tempC, onCharger, charging);
+      // v21: on the charger and NOT charging = charging finished. Vector then rests the battery
+      // (cuts it off from the charger), so the voltage reading isn't real (a 2.0 shows ~3.60V): say FULL
+      if (onCharger && !charging) { return std::string("FULL"); }
+      if (volts < 1.f) { return std::string(""); }
+      const int pct = (int)Util::Clamp((volts - 3.6f) / (4.1f - 3.6f) * 100.f, 0.f, 100.f);
+      return std::to_string(pct) + "%";
+    };
+    auto badgeCountText = []() {
+      const s32 n = ProceduralFaceDrawer::JamesBadgeCount();
+      s32 got = 0;
+      for (s32 i = 0; i < n; ++i) {
+        if (ProceduralFaceDrawer::JamesBadgeDate(i) > 0) { ++got; }
+      }
+      return std::to_string(got) + "/" + std::to_string(n);
+    };
+
+    // Back lights load when Vector starts. Remember which theme he started with, so the
+    // list can say when a restart is needed for the Halloween lights to match.
+
+    // ---- drawing: the list style (title, values on the right, footer) lives in faceInfoScreen.cpp ----
+    // info line colors: 0 = white, 1 = green (on), 2 = red (off), 3 = small footer at the bottom
+    auto drawList = [this](ScreenName screen, const std::vector<std::pair<std::string, int>>& info) {
+      JamesSetListInfo(screen, info);
+      ColoredTextLines none;
+      DrawTextOnScreen(none); // clears the screen and draws the list
+    };
+
+    auto drawCool = [drawList, upper, starsWord, petWord, moodOn, sleepyOn, themeWord, themeName, sleepWord,
+                     battText, badgeCountText, holidaysWord, funEyesWord]() {
+      const std::string theme = themeWord();
+      const std::string themeShown = themeName(theme);
+      JamesSetListValues(ScreenName::JamesOS, {
+        "",
+        upper(starsWord()),
+        upper(petWord()),
+        moodOn() ? "ON" : "OFF",
+        sleepyOn() ? "ON" : "OFF",
+        themeShown,
+        upper(holidaysWord()),
+        upper(funEyesWord()),
+        upper(sleepWord()),
+        battText(),
+        badgeCountText(),
+        ProceduralFaceDrawer::JamesFamilyOnlineText()   // FAMILY (private extra; empty otherwise)
+      });
+      std::vector<std::pair<std::string, int>> info;
+      // v23: the back lights follow the theme by themselves (no restart)
+      drawList(ScreenName::JamesOS, info);
+    };
+    auto drawLights = [drawList, lightsState, lightsOn]() {
+      drawList(ScreenName::JamesLights, { {"NOW: " + lightsState(), lightsOn() ? 1 : 2}, {"CHANGING RESTARTS HIM", 3} });
+    };
+    auto drawStatus = [drawList]() {
+      f32 volts = 0.f; s32 tempC = 0; bool onCharger = false, charging = false;
+      ProceduralFaceDrawer::JamesGetStatus(volts, tempC, onCharger, charging);
+      char buf[64];
+      std::string battLine = "BATTERY: ?";
+      bool battLow = false;
+      if (onCharger && !charging) {
+        battLine = "BATTERY FULL";   // charging finished: the voltage reading isn't real now (v21)
+      } else if (volts > 1.f) {
+        const int pct = (int)Util::Clamp((volts - 3.6f) / (4.1f - 3.6f) * 100.f, 0.f, 100.f);
+        battLow = pct < 20;
+        snprintf(buf, sizeof(buf), "BATTERY %d%% %.2fV", pct, volts);
+        battLine = buf;
+      }
+      snprintf(buf, sizeof(buf), "%s  %dC", charging ? "CHARGING" : (onCharger ? "ON CHARGER" : "UNPLUGGED"), (int)tempC);
+      const std::string chargeLine = buf;
+      double up = 0.0;
+      {
+        std::ifstream in("/proc/uptime");
+        if (in.is_open()) { in >> up; }
+      }
+      const int upMin = (int)(up / 60.0);
+      snprintf(buf, sizeof(buf), "ON %dH%02dM  PETS %d", upMin / 60, upMin % 60, (int)ProceduralFaceDrawer::JamesPetsToday());
+      const std::string upLine = buf;
+      drawList(ScreenName::JamesStatus, { {battLine, battLow ? 2 : 1}, {chargeLine, 0}, {upLine, 0} });
+    };
+
+    SET_ENTER_ACTION(JamesOS,     drawCool);
+    SET_ENTER_ACTION(JamesLights, drawLights);
+    SET_ENTER_ACTION(JamesStatus, drawStatus);
+
+    // ---- one press = next choice, then stay on the same line ----
+    auto change = [makeDir, drawCool](std::function<void()> step) {
+      return FaceInfoScreen::MenuItemAction([makeDir, drawCool, step]() {
+        makeDir();
+        step();
+        drawCool();
+        return ScreenName::JamesOS; // same screen: the cursor stays where it is
+      });
+    };
+    auto next = [](const std::vector<std::string>& order, const std::string& now) {
+      for (size_t i = 0; i < order.size(); ++i) {
+        if (order[i] == now) { return order[(i + 1) % order.size()]; }
+      }
+      return order[0];
+    };
+    auto setFlag = [](const std::string& flag, bool on) {
+      if (on) { (void)Util::FileUtils::WriteFile(flag, "1"); } else { Util::FileUtils::DeleteFile(flag); }
+    };
+
+    auto stepStars = [starsWord, next, goldUnlocked]() {
+      std::vector<std::string> order = {"rainbow", "white", "shooting"};
+      if (goldUnlocked()) { order.push_back("gold"); }   // reward for 100 days in a row
+      order.push_back("off");
+      const std::string style = next(order, starsWord());
+      if (style == "off") {
+        (void)Util::FileUtils::WriteFile(kStarOffFlag, "1");
+      } else {
+        (void)Util::FileUtils::WriteFile(kStarStyle, style + "\n");
+        Util::FileUtils::DeleteFile(kStarOffFlag);
+        if (!Util::FileUtils::FileExists(kStarConf)) {
+          (void)Util::FileUtils::WriteFile(kStarConf,
+            "enabled=1\nstars=3\nchance=0.04\nlife=24\nsize=2\ncolor=255,255,255\n");
+        }
+      }
+      LOG_INFO("FaceInfoScreenManager.JamesOS.Stars", "%s", style.c_str());
+    };
+    auto stepPet = [petWord, next]() {
+      const std::string fx = next({"galaxy", "off"}, petWord());
+      if (fx == "off") {
+        Util::FileUtils::DeleteFile(kHeartsOnFlag);
+      } else {
+        (void)Util::FileUtils::WriteFile(kHeartsOnFlag, "1");
+        (void)Util::FileUtils::WriteFile(kPetFxFile, fx + "\n");
+      }
+    };
+    auto stepMood   = [moodOn, setFlag]()   { setFlag(kMoodOnFlag, !moodOn()); };
+    auto stepSleepy = [sleepyOn, setFlag]() { setFlag(kSleepyOffFlag, sleepyOn()); };
+    auto stepFunEyes = [funEyesWord, next, setFlag]() {
+      const std::string m = next({"auto", "on", "off"}, funEyesWord());
+      setFlag(kFunEyesOffFlag, m == "off");
+      setFlag(kFunEyesAutoFlag, m == "auto");
+    };
+    auto stepTheme  = [themeWord, next, secretUnlocked]() {
+      std::vector<std::string> order = {"auto", "normal", "halloween", "christmas", "lunar",
+                                        "newyear", "valentine", "stpatrick", "aprilfools", "easter",
+                                        "mothersday", "fireworks", "thanksgiving"};
+      if (secretUnlocked()) {   // found the secret room
+        order.push_back("glitch");
+        order.push_back("retro");
+        order.push_back("galaxymax");
+      }
+      const std::string theme = next(order, themeWord());
+      (void)Util::FileUtils::WriteFile(kThemeFile, theme + "\n");
+      LOG_INFO("FaceInfoScreenManager.JamesOS.Theme", "%s", theme.c_str());
+    };
+    auto stepHolidays = [holidaysWord, next]() {
+      const std::string h = next({"all", "western", "off"}, holidaysWord());   // v24: ALL includes Chinese New Year
+      (void)Util::FileUtils::WriteFile(kHolidaysFile, h + "\n");
+      LOG_INFO("FaceInfoScreenManager.JamesOS.Holidays", "%s", h.c_str());
+    };
+    auto stepSleep = [sleepWord, next]() {
+      const std::string mode = next({"stars", "clock", "both", "off"}, sleepWord());
+      if (mode == "off") {
+        Util::FileUtils::DeleteFile(kSleepFile);
+      } else {
+        (void)Util::FileUtils::WriteFile(kSleepFile, mode + "\n");
+      }
+    };
+
+    // ---- EXTRAS list (values on the right come from drawCool, same order) ----
+    ADD_MENU_ITEM(JamesOS, "BACK", Main);
+    ADD_MENU_ITEM_WITH_ACTION(JamesOS, "STARS",       change(stepStars));
+    ADD_MENU_ITEM_WITH_ACTION(JamesOS, "PETTING",     change(stepPet));
+    ADD_MENU_ITEM_WITH_ACTION(JamesOS, "MOOD",        change(stepMood));
+    ADD_MENU_ITEM_WITH_ACTION(JamesOS, "SLEEPY EYES", change(stepSleepy));
+    ADD_MENU_ITEM_WITH_ACTION(JamesOS, "THEME",       change(stepTheme));
+    ADD_MENU_ITEM_WITH_ACTION(JamesOS, "HOLIDAYS",    change(stepHolidays));
+    ADD_MENU_ITEM_WITH_ACTION(JamesOS, "FUN EYES",    change(stepFunEyes));
+    ADD_MENU_ITEM_WITH_ACTION(JamesOS, "SLEEP",       change(stepSleep));
+    ADD_MENU_ITEM(JamesOS, "STATUS", JamesStatus);
+    ADD_MENU_ITEM(JamesOS, "BADGES", JamesBadges);
+    if (ProceduralFaceDrawer::JamesHasFamily()) { ADD_MENU_ITEM(JamesOS, "FAMILY", JamesFamily); }   // v23i private
+
+    // ---- MY FAMILY (private extra): brothers and sisters, online or away, pets today ----
+    auto drawFamily = [drawList]() {
+      std::vector<std::pair<std::string, int>> info;
+      for (const auto& l : ProceduralFaceDrawer::JamesFamilyLines()) {
+        info.push_back({l, l.find("ONLINE") != std::string::npos ? 1 : 0});
+      }
+      info.push_back({"ME  " + std::to_string(ProceduralFaceDrawer::JamesPetsToday()) + " PETS TODAY", 3});
+      drawList(ScreenName::JamesFamily, info);
+    };
+    SET_ENTER_ACTION(JamesFamily, drawFamily);
+    ADD_MENU_ITEM(JamesFamily, "BACK", JamesOS);
+
+    // older pages (not used any more, kept so nothing points to a missing screen)
+    ADD_MENU_ITEM(JamesStars,   "BACK", JamesOS);
+    ADD_MENU_ITEM(JamesEffects, "BACK", JamesOS);
+    ADD_MENU_ITEM(JamesTheme,   "BACK", JamesOS);
+    ADD_MENU_ITEM(JamesSleep,   "BACK", JamesOS);
+
+    // ---- LIGHTS: lights load when Vector starts, so a change restarts him ----
+    auto setLights = [this, makeDir, drawLights, lightsSent, lightsOn](bool wantCustom) {
+      return FaceInfoScreen::MenuItemAction([this, makeDir, drawLights, lightsSent, lightsOn, wantCustom]() {
+        if (!lightsSent() || lightsOn() == wantCustom) {
+          // nothing to change (or lights not sent yet: ./jamesos.sh lights)
+          drawLights();
+          return ScreenName::JamesLights;
+        }
+        makeDir();
+        if (wantCustom) {
+          Util::FileUtils::DeleteFile(kLightsOffFlag);
+        } else {
+          (void)Util::FileUtils::WriteFile(kLightsOffFlag, "1");
+        }
+        LOG_INFO("FaceInfoScreenManager.JamesOS.LightsChanged", "Rebooting to apply");
+        this->Reboot();
+        return ScreenName::Rebooting;
+      });
+    };
+    ADD_MENU_ITEM(JamesLights, "BACK", JamesConf);
+    ADD_MENU_ITEM_WITH_ACTION(JamesLights, "CUSTOM", setLights(true));
+    ADD_MENU_ITEM_WITH_ACTION(JamesLights, "NORMAL", setLights(false));
+
+    // ---- STATUS: battery, charger, temperature, time on, pets today ----
+    FaceInfoScreen::MenuItemAction refreshStatus = [drawStatus]() {
+      drawStatus();
+      return ScreenName::JamesStatus;
+    };
+    ADD_MENU_ITEM(JamesStatus, "BACK", JamesOS);
+    ADD_MENU_ITEM_WITH_ACTION(JamesStatus, "REFRESH", refreshStatus);
+
+    // ---- BADGES: every badge with a box (filled = unlocked); pick one to see how to get it ----
+    auto badgeSummary = []() {
+      const s32 n = ProceduralFaceDrawer::JamesBadgeCount();
+      s32 got = 0;
+      for (s32 i = 0; i < n; ++i) {
+        if (ProceduralFaceDrawer::JamesBadgeDate(i) > 0) { ++got; }
+      }
+      return std::to_string(got) + " OF " + std::to_string(n) + " UNLOCKED";
+    };
+    auto drawBadges = [drawList](const std::string& info) {
+      drawList(ScreenName::JamesBadges, { {info, 0} });
+    };
+    auto enterBadges = [drawBadges, badgeSummary]() { drawBadges(badgeSummary()); };
+    SET_ENTER_ACTION(JamesBadges, enterBadges);
+    ADD_MENU_ITEM(JamesBadges, "BACK", JamesOS);
+    for (s32 i = 0; i < ProceduralFaceDrawer::JamesBadgeCount(); ++i) {
+      FaceInfoScreen::MenuItemAction showBadge = [drawBadges, i]() {
+        const s32 d = ProceduralFaceDrawer::JamesBadgeDate(i);
+        std::string info;
+        if (d > 19000101) {
+          char buf[32];
+          snprintf(buf, sizeof(buf), "GOT IT %04d-%02d-%02d", (int)(d / 10000), (int)((d / 100) % 100), (int)(d % 100));
+          info = buf;
+        } else if (d > 0) {
+          info = "GOT IT!";
+        } else {
+          info = ProceduralFaceDrawer::JamesBadgeHint(i);
+        }
+        drawBadges(info);
+        return ScreenName::JamesBadges;
+      };
+      ADD_MENU_ITEM_WITH_ACTION(JamesBadges, ProceduralFaceDrawer::JamesBadgeName(i), showBadge);
+    }
+
+    // ---- MASTER PROOF: all badges (secret ones too) -> a screen to photo and share ----
+    auto allBadges = []() {
+      const s32 n = ProceduralFaceDrawer::JamesBadgeCount();
+      for (s32 i = 0; i < n; ++i) {
+        if (ProceduralFaceDrawer::JamesBadgeDate(i) <= 0) { return false; }
+      }
+      return true;
+    };
+    FaceInfoScreen::MenuItemAction openProof = [drawBadges, allBadges]() {
+      if (!allBadges()) {
+        drawBadges("LOCKED: GET EVERY BADGE");
+        return ScreenName::JamesBadges;
+      }
+      return ScreenName::JamesProof;
+    };
+    ADD_MENU_ITEM_WITH_ACTION(JamesBadges, "MASTER PROOF", openProof);
+    auto drawProof = [drawList]() {
+      const s32 n = ProceduralFaceDrawer::JamesBadgeCount();
+      s32 done = 0;
+      for (s32 i = 0; i < n; ++i) { done = std::max<s32>(done, ProceduralFaceDrawer::JamesBadgeDate(i)); }
+      std::string esn = OSState::getInstance()->GetSerialNumberAsString();
+      for (auto& c : esn) { if (c >= 'A' && c <= 'Z') { c = (char)(c - 'A' + 'a'); } }
+      // a code made from this robot's serial number and the day it finished: same robot, same code
+      const std::string seed = esn + "|" + std::to_string(done) + "|JAMESOS";
+      uint64_t h = 1469598103934665603ULL;
+      for (unsigned char c : seed) { h ^= c; h *= 1099511628211ULL; }
+      static const char kAlphabet[] = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+      std::string code;
+      for (int k = 0; k < 8; ++k) {
+        if (k == 4) { code += "-"; }
+        code += kAlphabet[(h >> (k * 5)) & 31];
+      }
+      char date[32];
+      snprintf(date, sizeof(date), "DONE %04d-%02d-%02d", (int)(done / 10000), (int)((done / 100) % 100), (int)(done % 100));
+      drawList(ScreenName::JamesProof, { {"JAMESOS MASTER", 4},
+                                         {"ALL " + std::to_string(n) + " BADGES!", 1},
+                                         {"CODE: " + code, 0},
+                                         {std::string(date) + "  " + esn, 3} });
+    };
+    SET_ENTER_ACTION(JamesProof, drawProof);
+    ADD_MENU_ITEM(JamesProof, "BACK", JamesBadges);
+
+    // ---- CONFIGURATION: system things (moved here so the main screen stays simple) ----
+    ADD_MENU_ITEM(JamesConf, "EXIT", Main);
+#if ENABLE_SELF_TEST
+    ADD_MENU_ITEM(JamesConf, "SELF TEST", SelfTest);
+#endif
+    ADD_MENU_ITEM(JamesConf, "RESTART", JamesRestart);
+    ADD_MENU_ITEM(JamesConf, "BACKPACK LIGHTS", JamesLights);
+    FaceInfoScreen::MenuItemAction openData = [this]() {
+      // the network / sensor / motor / mic pages: press the back button for the next page
+      _debugInfoScreensUnlocked = true;
+      return ScreenName::Network;
+    };
+    ADD_MENU_ITEM_WITH_ACTION(JamesConf, "DATA", openData);
+    ADD_MENU_ITEM(JamesConf, "CLEAR OUT SOUL", ClearUserData);
+    ADD_MENU_ITEM(JamesConf, "ABOUT JAMESOS", JamesAbout);
+    ADD_MENU_ITEM(JamesConf, "WHAT'S NEW", JamesNews);   // v23h
+
+    // ---- WHAT'S NEW (v23h): the list comes with the build (config/jamesos/whatsnew.txt) ----
+    // first line = version, then "NAME|what it is (/ = second line)"; pick a line to read it
+    {
+      static std::string newsVersion;
+      static std::vector<std::pair<std::string, std::string>> news;
+      newsVersion.clear();
+      news.clear();
+      std::ifstream nf("/anki/data/assets/cozmo_resources/config/jamesos/whatsnew.txt");
+      std::string line;
+      while (std::getline(nf, line)) {
+        while (!line.empty() && (line.back() == '\r' || line.back() == ' ')) { line.pop_back(); }
+        if (line.empty() || line[0] == '#') { continue; }
+        if (newsVersion.empty()) { newsVersion = line; continue; }
+        const size_t bar = line.find('|');
+        news.push_back({line.substr(0, bar), bar == std::string::npos ? std::string() : line.substr(bar + 1)});
+      }
+      auto drawNews = [drawList](const std::string& text) {
+        std::vector<std::pair<std::string, int>> info = {{"NEW IN " + (newsVersion.empty() ? std::string("JAMESOS") : newsVersion), 4}};
+        const size_t slash = text.find('/');
+        info.push_back({text.substr(0, slash), 0});
+        if (slash != std::string::npos) { info.push_back({text.substr(slash + 1), 0}); }
+        drawList(ScreenName::JamesNews, info);
+      };
+      auto enterNews = [drawNews]() {
+        drawNews(news.empty() ? std::string("NOTHING LISTED") : std::string("PICK ONE TO READ MORE"));
+      };
+      SET_ENTER_ACTION(JamesNews, enterNews);
+      ADD_MENU_ITEM(JamesNews, "BACK", JamesConf);
+      for (size_t i = 0; i < news.size(); ++i) {
+        FaceInfoScreen::MenuItemAction readOne = [drawNews, i]() {
+          drawNews(news[i].second);
+          return ScreenName::JamesNews;
+        };
+        ADD_MENU_ITEM_WITH_ACTION(JamesNews, news[i].first, readOne);
+      }
+    }
+    auto drawConf = [drawList]() { drawList(ScreenName::JamesConf, {}); };
+    SET_ENTER_ACTION(JamesConf, drawConf);
+
+    // ---- RESTART: asks first ----
+    FaceInfoScreen::MenuItemAction confirmRestart = [this]() {
+      LOG_INFO("FaceInfoScreenManager.JamesOS.Restart", "Rebooting from the menu");
+      this->Reboot();
+      return ScreenName::Rebooting;
+    };
+    ADD_MENU_ITEM(JamesRestart, "BACK", JamesConf);
+    ADD_MENU_ITEM_WITH_ACTION(JamesRestart, "CONFIRM", confirmRestart);
+    auto drawRestart = [drawList]() { drawList(ScreenName::JamesRestart, { {"RESTART VECTOR?", 0}, {"TAKES ABOUT A MINUTE", 3} }); };
+    SET_ENTER_ACTION(JamesRestart, drawRestart);
+
+    // ---- ABOUT JAMESOS (psst: open it 7 times in a row, like Android's developer options) ----
+    static int aboutCount = 0;
+    static std::chrono::steady_clock::time_point aboutFirst;
+    static bool secretOpen = false;
+    auto drawAbout = [drawList, readWord, themeWord, themeName, secretUnlocked]() {
+      const auto now = std::chrono::steady_clock::now();
+      if (aboutCount == 0 || now - aboutFirst > std::chrono::seconds(60)) {
+        aboutCount = 0;
+        aboutFirst = now;
+      }
+      ++aboutCount;
+      // v21: version from /anki/etc/jamesos-version (line 1 = id like 20261018-171145 or test-..., line 2 = name like v21)
+      std::string build, label;
+      {
+        std::ifstream vf("/anki/etc/jamesos-version");
+        std::getline(vf, build);
+        std::getline(vf, label);
+      }
+      if (build.empty()) { build = readWord("/data/jamesos-update/version"); }   // older builds
+      const bool test = build.compare(0, 5, "test-") == 0;
+      if (test) { build = build.substr(5); }
+      if (build.size() >= 8) {
+        build = build.substr(0, 4) + "-" + build.substr(4, 2) + "-" + build.substr(6, 2) + (test ? " TEST" : "");
+      } else {
+        build = "NOT PUBLISHED";
+      }
+      std::string name = "JAMESOS " + (label.empty() ? std::string("V1.0") : label);
+      for (auto& ch : name) { if (ch >= 'a' && ch <= 'z') { ch = (char)(ch - 'a' + 'A'); } }
+      const bool proto = ProceduralFaceDrawer::JamesIsPrototype();   // v23: James's PVT
+      std::pair<std::string, int> last = proto ? std::pair<std::string, int>{"PVT PROTOTYPE", 4}
+                                               : std::pair<std::string, int>{"THEME: " + themeName(themeWord()), 0};
+      if (aboutCount >= 7) {
+        secretOpen = true;
+        aboutCount = 0;
+        if (!secretUnlocked()) { ProceduralFaceDrawer::JamesUnlockBadge("SECRET_ROOM"); }
+        last = {"SOMETHING OPENED...", 4};
+      } else if (aboutCount >= 4) {
+        last = {std::to_string(7 - aboutCount) + " MORE...", 3};
+      }
+      drawList(ScreenName::JamesAbout, { {name, proto ? 4 : 1},
+                                         {"UPDATE: " + build, 0},
+                                         last });
+    };
+    SET_ENTER_ACTION(JamesAbout, drawAbout);
+    FaceInfoScreen::MenuItemAction leaveAbout = []() {
+      if (secretOpen) {
+        secretOpen = false;
+        return ScreenName::JamesSecret;
+      }
+      return ScreenName::JamesConf;
+    };
+    ADD_MENU_ITEM_WITH_ACTION(JamesAbout, "BACK", leaveAbout);
+
+    // ---- SECRET ROOM: three hidden themes (they also join the THEME list in EXTRAS from now on) ----
+    auto drawSecret = [drawList, themeWord]() {
+      const std::string t = themeWord();
+      JamesSetListValues(ScreenName::JamesSecret, {"", t == "glitch" ? "ON" : "", t == "retro" ? "ON" : "",
+                                                   t == "galaxymax" ? "ON" : ""});
+      drawList(ScreenName::JamesSecret, { {"YOU FOUND IT!", 4}, {"PICK A SECRET THEME", 0} });
+    };
+    SET_ENTER_ACTION(JamesSecret, drawSecret);
+    auto setSecretTheme = [makeDir, drawSecret](const std::string& theme) {
+      return FaceInfoScreen::MenuItemAction([makeDir, drawSecret, theme]() {
+        makeDir();
+        (void)Util::FileUtils::WriteFile(kThemeFile, theme + "\n");
+        LOG_INFO("FaceInfoScreenManager.JamesOS.SecretTheme", "%s", theme.c_str());
+        drawSecret();
+        return ScreenName::JamesSecret;
+      });
+    };
+    ADD_MENU_ITEM(JamesSecret, "BACK", JamesConf);
+    ADD_MENU_ITEM_WITH_ACTION(JamesSecret, "GLITCH",      setSecretTheme("glitch"));
+    ADD_MENU_ITEM_WITH_ACTION(JamesSecret, "RETRO GREEN", setSecretTheme("retro"));
+    ADD_MENU_ITEM_WITH_ACTION(JamesSecret, "GALAXY MAX",  setSecretTheme("galaxymax"));
+  }
+  // <<< JamesOS MODS menu (end)

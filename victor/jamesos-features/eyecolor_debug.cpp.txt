@@ -1,0 +1,11 @@
+  // JamesOS "black box": write what Vector heard, so we can see why a color didn't change.
+  // Read it with:  cat /data/data/jamesos/last_eye_color.txt
+  bool JamesEyeColorDebug(const std::string& colorRequest, bool applied)
+  {
+    std::ofstream out("/data/data/jamesos/last_eye_color.txt", std::ios::trunc);
+    if (out.is_open()) {
+      out << "heard: " << colorRequest << "\n"
+          << "JamesOS color applied: " << (applied ? "yes" : "no") << "\n";
+    }
+    return applied;
+  }

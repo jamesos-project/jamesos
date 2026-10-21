@@ -1,0 +1,33 @@
+
+    if (menus >= 3) {
+      // JamesOS: 3 or 4 buttons in one row (v24: 3 too, so EXTRAS fits on the 2.0). Size each button by its text and spread
+      // them evenly; if they don't fit, use slightly smaller text for this row.
+      const f32 rightMargin = 2.f;
+      f32 scale = textScale;
+      f32 cursorW = 8.f;
+      std::vector<f32> widths;
+      f32 total = 0.f;
+      for (int pass = 0; pass < 2; ++pass) {
+        widths.clear();
+        total = 0.f;
+        for (const auto& item : _menu) {
+          const f32 w = cursorW + Vision::Image::GetTextSize(item.text, scale, 1).x();
+          widths.push_back(w);
+          total += w;
+        }
+        if (total <= FACE_DISPLAY_WIDTH - rightMargin) {
+          break;
+        }
+        scale = 0.35f;
+        cursorW = 7.f;
+      }
+      const f32 gap = std::max(0.f, (FACE_DISPLAY_WIDTH - rightMargin - total) / (f32)(menus - 1));
+      f32 x = 0.f;
+      for (s32 i = 0; i < menus; ++i) {
+        if (_menuCursor == i) img.DrawText({x, locY}, ">", menuItemColor, scale);
+        img.DrawText({x + cursorW, locY}, _menu[i].text, menuItemColor, scale);
+        x += widths[i] + gap;
+      }
+      return;
+    }
+    // JamesOS: end 4 buttons

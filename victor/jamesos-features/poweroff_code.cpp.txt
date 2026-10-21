@@ -1,0 +1,46 @@
+      // >>> JamesOS power off (begin)
+      // Software power off, exactly like holding the back button: anything running as root can ask for it
+      // by creating /dev/shm/jamesos_poweroff (jamesos.sh poweroff, the web page, a voice command).
+      // Steps: tell vic-engine/vic-anim to get ready (PrepForShutdown), wait, sync the disk, then ask
+      // the body board to cut the power (HAL::Shutdown -> PAYLOAD_SHUT_DOWN). /dev/shm is cleared on boot.
+      void CheckForJamesPowerOff()
+      {
+#ifndef SIMULATOR
+        enum JamesPowerState { JAMES_IDLE, JAMES_PREP, JAMES_SYNCED, JAMES_DONE };
+        static JamesPowerState jamesState = JAMES_IDLE;
+        static TimeStamp_t jamesMark_ms = 0;
+        static TimeStamp_t jamesLastCheck_ms = 0;
+        const TimeStamp_t now_ms = HAL::GetTimeStamp();
+        switch (jamesState) {
+          case JAMES_IDLE:
+            if (now_ms - jamesLastCheck_ms < 1000) { return; }   // look about once a second
+            jamesLastCheck_ms = now_ms;
+            if (access("/dev/shm/jamesos_poweroff", F_OK) != 0) { return; }
+            AnkiInfo("CozmoBot.JamesOS.PowerOff", "Power off requested");
+            SaveWallClockToDisk();
+            SendPrepForShutdown(ShutdownReason::SHUTDOWN_BUTTON);
+            shutdownInProgress_ = true;
+            jamesMark_ms = now_ms;
+            jamesState = JAMES_PREP;
+            break;
+          case JAMES_PREP:
+            if (now_ms - jamesMark_ms > 3000) {
+              sync();
+              jamesMark_ms = now_ms;
+              jamesState = JAMES_SYNCED;
+            }
+            break;
+          case JAMES_SYNCED:
+            if (now_ms - jamesMark_ms > 1000) {
+              AnkiWarn("CozmoBot.JamesOS.PowerOff.HALShutdown", "");
+              HAL::Shutdown();
+              jamesState = JAMES_DONE;
+            }
+            break;
+          case JAMES_DONE:
+            break;
+        }
+#endif
+      }
+      // <<< JamesOS power off (end)
+

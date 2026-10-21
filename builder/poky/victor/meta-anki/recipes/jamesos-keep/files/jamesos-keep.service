@@ -1,0 +1,21 @@
+[Unit]
+Description=JamesOS keep (puts JamesOS back after Clear Out Soul, keeps badges)
+# /data is mounted (and erased at shutdown) by WireOS's mount-data.service, so start AFTER it
+# (the drive is there) and - because systemd stops things in reverse order - save BEFORE it
+# unmounts and erases the drive.
+Requires=mount-data.service
+After=mount-data.service local-fs.target
+Before=anki-robot.target jamesos-update.service
+RequiresMountsFor=/persist
+ConditionPathExists=/anki/data/assets/cozmo_resources/config/jamesos/jamesos-keep.sh
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/bin/sh /anki/data/assets/cozmo_resources/config/jamesos/jamesos-keep.sh boot
+ExecStop=/bin/sh /anki/data/assets/cozmo_resources/config/jamesos/jamesos-keep.sh save
+TimeoutStartSec=120
+TimeoutStopSec=30
+
+[Install]
+WantedBy=multi-user.target
