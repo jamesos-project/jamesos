@@ -967,6 +967,22 @@ PY
       echo "Couldn't turn the private extras off - stopping, nothing was built."; exit 1
     fi
 
+    # JamesOS updates come from your server (jamesos/ota-host.txt), never from WireOS's server,
+    # and a robot never installs an older version. No server set up yet = auto-update off.
+    UCF="$VB/platform/config/CMakeLists.txt"
+    UENV="$VB/platform/config/development/etc-template/update-engine.env.in"
+    OTAHOST=$(cat jamesos/ota-host.txt 2>/dev/null)
+    grep -q 'https://ota.pvic.xyz/vic/' "$UCF" || { echo "Couldn't find WireOS's update server setting - stopping, nothing was built. Send Claude a screenshot."; exit 1; }
+    if [[ "$OTAHOST" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+      sed -i "s#https://ota.pvic.xyz/vic/#http://$OTAHOST/vic/#g" "$UCF"
+      echo "   Updates from: http://$OTAHOST/vic/ (your server)"
+    else
+      sed -i 's/^UPDATE_ENGINE_ENABLED=True/UPDATE_ENGINE_ENABLED=False/' "$UENV"
+      echo "   No JamesOS server set up - auto-update OFF in this OTA"
+    fi
+    sed -i 's/^UPDATE_ENGINE_ALLOW_DOWNGRADE=True/UPDATE_ENGINE_ALLOW_DOWNGRADE=False/' "$UENV"
+    if grep -q 'ota.pvic.xyz' "$UCF"; then echo "WireOS's update server is still set - stopping, nothing was built."; exit 1; fi
+
     echo "== 3/5 Version $JAMESOS_RELEASE, boot animation, startup picture, welcome message, JamesOS keep =="
     INF="$VB/animProcess/src/cozmoAnim/faceDisplay/faceInfoScreenManager.cpp"
     sed -i "s/return \"JamesOS v1\.0\";/return \"JamesOS $JAMESOS_RELEASE\";/" "$INF"
