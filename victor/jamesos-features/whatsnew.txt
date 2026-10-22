@@ -1,6 +1,7 @@
 # What's new - shown in CONF -> WHAT'S NEW. First line = version.
 # Each line: NAME (short, shown in the list) | what it is (use / for a second line). Keep lines short.
-V25
+V26
+TIC-TAC-TOE|EXTRAS -> TIC-TAC-TOE/WHEELS PICK, LIFT PLACES X
 AUTO UPDATES|NEW VERSIONS INSTALL/BY THEMSELVES AT NIGHT
 HOLIDAY TIME|EXTRAS: SEASON OR/ONLY THE DAY ITSELF
 GALAXY ALWAYS|EXTRAS: PETTING ->/ALWAYS = GALAXY EYES

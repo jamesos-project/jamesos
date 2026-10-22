@@ -30,6 +30,7 @@ static const char* JamesListTitle(ScreenName name)
     case ScreenName::JamesProof:   return "MASTER PROOF";
     case ScreenName::JamesNews:    return "WHAT'S NEW";
     case ScreenName::JamesFamily:  return "MY FAMILY";
+    case ScreenName::JamesGame:    return "TIC-TAC-TOE";
     default:                       return "JAMESOS";
   }
 }
@@ -82,9 +83,106 @@ size_t JamesRestoreCursor(ScreenName name, size_t count)
   return 0;
 }
 
+// v26: TIC-TAC-TOE (EXTRAS -> TIC-TAC-TOE). The game itself lives in the menu code; it hands the
+// board over as list values: [0..8] squares ("X" you, "O" Vector, "" empty), [9] status line,
+// [10] your wins, [11] Vector's wins, [12] the winning line ("a b c" square numbers, or "").
+// Cursor 0..8 = a square (wheels move it, lift places your X), 9 = BACK.
+static void JamesDrawTicTacToe(Vision::ImageRGB565& img, size_t cursor)
+{
+  static const ColorRGBA kBg(u8(0), u8(0), u8(0));
+  static const ColorRGBA kFg(u8(255), u8(255), u8(255));
+  static const ColorRGBA kGreen(u8(80), u8(255), u8(80));
+  static const ColorRGBA kDim(u8(130), u8(130), u8(130));
+  static const ColorRGBA kGrid(u8(90), u8(90), u8(90));
+  static const ColorRGBA kSel(u8(30), u8(80), u8(40));
+  static const ColorRGBA kO(u8(255), u8(160), u8(40));
+  static const ColorRGBA kGold(u8(255), u8(200), u8(40));
+
+  const s32 W = img.GetNumCols();
+  const s32 H = img.GetNumRows();
+  const bool small = (H < 96);
+  img.DrawFilledRect(Rectangle<f32>(0.f, 0.f, (f32)W, (f32)H), kBg);
+
+  std::vector<std::string> v(13);
+  const auto it = JamesListValues().find(ScreenName::JamesGame);
+  if (it != JamesListValues().end()) {
+    for (size_t i = 0; i < v.size() && i < it->second.size(); ++i) { v[i] = it->second[i]; }
+  }
+
+  const s32 cell = (H - (small ? 14 : 16)) / 3;
+  const s32 B = cell * 3;
+  const s32 x0 = (W - B) / 2;
+  const s32 y0 = 2;
+  auto centerOf = [&](s32 k) {
+    return Point2f((f32)(x0 + (k % 3) * cell) + cell * 0.5f, (f32)(y0 + (k / 3) * cell) + cell * 0.5f);
+  };
+
+  // the square you're on
+  if (cursor < 9) {
+    const s32 cx = x0 + ((s32)cursor % 3) * cell, cy = y0 + ((s32)cursor / 3) * cell;
+    img.DrawFilledRect(Rectangle<f32>((f32)cx + 1.f, (f32)cy + 1.f, (f32)cell - 1.f, (f32)cell - 1.f), kSel);
+  }
+  // the grid
+  for (s32 i = 1; i <= 2; ++i) {
+    img.DrawLine(Point2f((f32)(x0 + i * cell), (f32)y0), Point2f((f32)(x0 + i * cell), (f32)(y0 + B)), kGrid, 1);
+    img.DrawLine(Point2f((f32)x0, (f32)(y0 + i * cell)), Point2f((f32)(x0 + B), (f32)(y0 + i * cell)), kGrid, 1);
+  }
+  // X and O
+  const f32 m = cell * 0.25f;
+  for (s32 k = 0; k < 9; ++k) {
+    const Point2f c = centerOf(k);
+    const f32 r = cell * 0.5f - m;
+    if (v[k] == "X") {
+      img.DrawLine(Point2f(c.x() - r, c.y() - r), Point2f(c.x() + r, c.y() + r), kFg, 2);
+      img.DrawLine(Point2f(c.x() - r, c.y() + r), Point2f(c.x() + r, c.y() - r), kFg, 2);
+    } else if (v[k] == "O") {
+      img.DrawCircle(c, kO, (s32)r, 2);
+    }
+  }
+  // the winning line
+  {
+    const std::string& wl = v[12];   // "a b c", one digit each
+    if (wl.size() == 5 && wl[0] >= '0' && wl[0] <= '8' && wl[4] >= '0' && wl[4] <= '8') {
+      img.DrawLine(centerOf(wl[0] - '0'), centerOf(wl[4] - '0'), kGreen, 2);
+    }
+  }
+
+  // side columns: YOU (X) on the left, VECTOR (O) on the right, wins under each
+  const f32 ts = small ? 0.3f : 0.34f;
+  auto drawCentered = [&](const std::string& t, f32 cxp, f32 baseline, const ColorRGBA& col, f32 scale) {
+    f32 s = scale;
+    f32 w = img.GetTextSize(t, s, 1).x();
+    while (w > (f32)x0 - 4.f && s > 0.22f) { s -= 0.02f; w = img.GetTextSize(t, s, 1).x(); }
+    img.DrawText({cxp - w * 0.5f, baseline}, t, col, s);
+  };
+  const f32 lx = x0 * 0.5f, rx = (f32)(x0 + B) + (f32)(W - x0 - B) * 0.5f;
+  drawCentered("YOU", lx, small ? 11.f : 13.f, kFg, ts);
+  drawCentered("VECTOR", rx, small ? 11.f : 13.f, kFg, ts);
+  const f32 my = small ? 26.f : 31.f, mr = small ? 7.f : 8.f;
+  img.DrawLine(Point2f(lx - mr, my - mr), Point2f(lx + mr, my + mr), kFg, 2);
+  img.DrawLine(Point2f(lx - mr, my + mr), Point2f(lx + mr, my - mr), kFg, 2);
+  img.DrawCircle(Point2f(rx, my), kO, (s32)mr, 2);
+  drawCentered(v[10].empty() ? std::string("0") : v[10], lx, small ? 50.f : 58.f, kGold, ts + 0.06f);
+  drawCentered(v[11].empty() ? std::string("0") : v[11], rx, small ? 50.f : 58.f, kGold, ts + 0.06f);
+  drawCentered(cursor == 9 ? "> BACK" : "BACK", lx, (f32)(y0 + B) - 1.f, cursor == 9 ? kGreen : kDim, ts);
+
+  // status line under the board
+  {
+    const std::string& st = v[9];
+    f32 s = ts;
+    f32 w = img.GetTextSize(st, s, 1).x();
+    while (w > (f32)W - 4.f && s > 0.22f) { s -= 0.02f; w = img.GetTextSize(st, s, 1).x(); }
+    img.DrawText({((f32)W - w) * 0.5f, (f32)H - 2.f}, st, (st.find("WIN") != std::string::npos || st == "DRAW") ? kGold : kFg, s);
+  }
+}
+
 static void JamesDrawList(Vision::ImageRGB565& img, ScreenName name,
                           const std::vector<std::string>& items, size_t cursor)
 {
+  if (name == ScreenName::JamesGame) {   // v26: the tic-tac-toe board instead of a list
+    JamesDrawTicTacToe(img, cursor);
+    return;
+  }
   static const ColorRGBA kBg(u8(0), u8(0), u8(0));
   static const ColorRGBA kFg(u8(255), u8(255), u8(255));
   static const ColorRGBA kGreen(u8(80), u8(255), u8(80));

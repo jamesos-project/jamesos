@@ -90,6 +90,8 @@ enum class ScreenName : uint8_t {
   
   JamesFamily, // JamesOS COOL FEATURES
   
+  JamesGame, // JamesOS COOL FEATURES
+  
   Count
 };
 

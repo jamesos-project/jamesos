@@ -158,6 +158,7 @@
         upper(sleepWord()),
         battText(),
         badgeCountText(),
+        "",                                              // TIC-TAC-TOE
         ProceduralFaceDrawer::JamesFamilyOnlineText()   // FAMILY (private extra; empty otherwise)
       });
       std::vector<std::pair<std::string, int>> info;
@@ -291,6 +292,99 @@
       }
     };
 
+    // ---- v26: TIC-TAC-TOE (EXTRAS -> TIC-TAC-TOE) ----
+    // Wheels move between the 9 squares (and BACK), the lift places your X, then Vector plays O.
+    // Vector: wins if he can, blocks you if he must, else center / corners / sides - but 1 time in 5
+    // he picks a random square, so you can beat him. Who starts takes turns each game.
+    static std::string tttBoard(9, ' ');
+    static int tttState = 0;            // 0 playing, 1 you won, 2 Vector won, 3 draw
+    static int tttYou = 0, tttVec = 0, tttGames = 1;
+    static std::string tttLine;
+    static uint32_t tttSeed = (uint32_t)std::chrono::steady_clock::now().time_since_epoch().count();
+    auto tttRand = []() { tttSeed = tttSeed * 1664525u + 1013904223u; return (int)((tttSeed >> 8) & 0xFFFF); };
+    auto tttWinner = [](const std::string& b, std::string* line) {
+      static const int kLines[8][3] = {{0,1,2},{3,4,5},{6,7,8},{0,3,6},{1,4,7},{2,5,8},{0,4,8},{2,4,6}};
+      for (const auto& l : kLines) {
+        if (b[l[0]] != ' ' && b[l[0]] == b[l[1]] && b[l[1]] == b[l[2]]) {
+          if (line != nullptr) { *line = std::to_string(l[0]) + " " + std::to_string(l[1]) + " " + std::to_string(l[2]); }
+          return b[l[0]];
+        }
+      }
+      return ' ';
+    };
+    auto tttVectorMove = [tttWinner, tttRand]() {
+      std::vector<int> open;
+      for (int i = 0; i < 9; ++i) { if (tttBoard[i] == ' ') { open.push_back(i); } }
+      if (open.empty()) { return; }
+      int pick = -1;
+      if (tttRand() % 5 != 0) {
+        for (char who : {'O', 'X'}) {             // win first, then block
+          for (int i : open) {
+            tttBoard[i] = who;
+            const bool wins = (tttWinner(tttBoard, nullptr) == who);
+            tttBoard[i] = ' ';
+            if (wins) { pick = i; break; }
+          }
+          if (pick >= 0) { break; }
+        }
+        if (pick < 0 && tttBoard[4] == ' ') { pick = 4; }
+        if (pick < 0) {
+          std::vector<int> corners;
+          for (int i : {0, 2, 6, 8}) { if (tttBoard[i] == ' ') { corners.push_back(i); } }
+          if (!corners.empty()) { pick = corners[tttRand() % corners.size()]; }
+        }
+      }
+      if (pick < 0) { pick = open[tttRand() % open.size()]; }
+      tttBoard[pick] = 'O';
+    };
+    auto tttCheck = [tttWinner]() {
+      std::string line;
+      const char w = tttWinner(tttBoard, &line);
+      if (w == 'X')      { tttState = 1; ++tttYou; tttLine = line; }
+      else if (w == 'O') { tttState = 2; ++tttVec; tttLine = line; }
+      else if (tttBoard.find(' ') == std::string::npos) { tttState = 3; }
+    };
+    auto tttNew = [tttVectorMove]() {
+      tttBoard = std::string(9, ' ');
+      tttState = 0;
+      tttLine.clear();
+      ++tttGames;
+      if (tttGames % 2 == 0) { tttVectorMove(); }   // every other game Vector goes first
+    };
+    auto drawGame = [drawList]() {
+      std::vector<std::string> v;
+      for (int i = 0; i < 9; ++i) { v.push_back(tttBoard[i] == ' ' ? std::string() : std::string(1, tttBoard[i])); }
+      v.push_back(tttState == 0 ? "YOUR TURN: LIFT = PLACE X" :
+                  tttState == 1 ? "YOU WIN!  LIFT = AGAIN" :
+                  tttState == 2 ? "VECTOR WINS  LIFT = AGAIN" : "DRAW  LIFT = AGAIN");
+      v.push_back(std::to_string(tttYou));
+      v.push_back(std::to_string(tttVec));
+      v.push_back(tttLine);
+      JamesSetListValues(ScreenName::JamesGame, v);
+      drawList(ScreenName::JamesGame, {});
+    };
+    auto tttTap = [drawGame, tttCheck, tttVectorMove, tttNew](int k) {
+      return FaceInfoScreen::MenuItemAction([drawGame, tttCheck, tttVectorMove, tttNew, k]() {
+        if (tttState != 0) {
+          tttNew();
+        } else if (tttBoard[k] == ' ') {
+          tttBoard[k] = 'X';
+          tttCheck();
+          if (tttState == 0) {
+            tttVectorMove();
+            tttCheck();
+          }
+        }
+        drawGame();
+        return ScreenName::JamesGame;
+      });
+    };
+    SET_ENTER_ACTION(JamesGame, drawGame);
+    for (int k = 0; k < 9; ++k) {
+      ADD_MENU_ITEM_WITH_ACTION(JamesGame, "SQUARE " + std::to_string(k + 1), tttTap(k));
+    }
+    ADD_MENU_ITEM(JamesGame, "BACK", JamesOS);
+
     // ---- EXTRAS list (values on the right come from drawCool, same order) ----
     ADD_MENU_ITEM(JamesOS, "BACK", Main);
     ADD_MENU_ITEM_WITH_ACTION(JamesOS, "STARS",       change(stepStars));
@@ -304,6 +398,7 @@
     ADD_MENU_ITEM_WITH_ACTION(JamesOS, "SLEEP",       change(stepSleep));
     ADD_MENU_ITEM(JamesOS, "STATUS", JamesStatus);
     ADD_MENU_ITEM(JamesOS, "BADGES", JamesBadges);
+    ADD_MENU_ITEM(JamesOS, "TIC-TAC-TOE", JamesGame);   // v26
     if (ProceduralFaceDrawer::JamesHasFamily()) { ADD_MENU_ITEM(JamesOS, "FAMILY", JamesFamily); }   // v23i private
 
     // ---- MY FAMILY (private extra): brothers and sisters, online or away, pets today ----

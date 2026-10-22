@@ -63,7 +63,7 @@ START_TAG = "// ================================================================
 END_TAG   = "// ============================== end JamesOS starlight ==============================\n"
 
 LIST_SCREENS = ["JamesOS", "JamesStars", "JamesEffects", "JamesTheme", "JamesSleep", "JamesLights", "JamesStatus", "JamesBadges",
-                "JamesConf", "JamesAbout", "JamesRestart", "JamesSecret", "JamesProof", "JamesNews", "JamesFamily"]
+                "JamesConf", "JamesAbout", "JamesRestart", "JamesSecret", "JamesProof", "JamesNews", "JamesFamily", "JamesGame"]
 
 
 def die(msg):
