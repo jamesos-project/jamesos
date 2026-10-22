@@ -88,6 +88,7 @@ namespace {
   bool gJamesStarSolid = false;   // only while drawing gold sparkles
   std::atomic<int>   gJamesTheme{0};       // JamesTheme
   std::atomic<int>   gJamesHolidayMask{3}; // which holidays: 1 = western, 2 = Chinese New Year (3 = all, 0 = off)
+  std::atomic<bool>  gJamesHolidayDayOnly{false}; // v25: EXTRAS -> HOLIDAY TIME -> DAY
   std::atomic<int>   gJamesFunEyesMode{2}; // v24: EXTRAS -> FUN EYES: 0 = off, 1 = auto (the day itself), 2 = on (whole holiday)
   std::atomic<bool>  gJamesShiny{false};       // v23: a shiny day (1 in 4096)
   std::atomic<bool>  gJamesShinyTest{false};   // v23: shiny forced for a test (no badge)
@@ -202,7 +203,7 @@ namespace {
   {
     const int mask = gJamesHolidayMask;
     if (today == 0 || mask == 0) { return JamesTheme::Normal; }
-    return JamesEyeTheme(jamesos::PickTheme(JamesCalDate(today), (mask & 2) != 0));
+    return JamesEyeTheme(jamesos::PickTheme(JamesCalDate(today), (mask & 2) != 0, gJamesHolidayDayOnly));
   }
 
   // the next holiday within 7 days: its index, and in how many days (0 = today). false = none
@@ -242,6 +243,7 @@ namespace {
     {
       const std::string hl = JamesReadWord(kJamesHolidaysFile);
       gJamesHolidayMask = (hl == "western") ? 1 : (hl == "off") ? 0 : 3;   // v24: "asian" is gone (counts as all)
+      gJamesHolidayDayOnly = (JamesReadWord(jamesos::kHolidayTimeFile) == "day");  // v25
     }
     gJamesFunEyesMode = JamesFileExists(kJamesFunEyesOffFlag) ? 0 : (JamesFileExists(kJamesFunEyesAutoFlag) ? 1 : 2);
     const std::string theme = JamesReadWord(kJamesThemeFile);
@@ -1420,16 +1422,18 @@ bool ProceduralFaceDrawer::ApplyJamesHearts(Vision::ImageRGB565& output, bool di
   struct GalaxyStar { f32 u, v, ph, sp; };
   static u32 frameCount = 0;
   static bool petFxOn = false;
+  static bool galaxyAlways = false;   // v25: EXTRAS -> PETTING -> ALWAYS
   static f32 amount = 0.f;   // 0 = normal eyes, 1 = full effect (fades in and out)
   static u32 pulse = 0;
   static std::vector<GalaxyStar> galaxyStars;
 
   if ((frameCount++ % 60) == 0) {
     petFxOn = JamesFileExists(kJamesHeartsOnFlag);
+    galaxyAlways = JamesFileExists("/data/data/jamesos/galaxy.always");
   }
 
   const bool galaxyMax = JamesIsGalaxyMax();
-  const bool want = (petFxOn && gJamesPetting) || galaxyMax;   // Galaxy Max theme: always on
+  const bool want = (petFxOn && gJamesPetting) || galaxyMax || galaxyAlways;   // Galaxy Max theme / ALWAYS: always on
   amount += want ? 0.10f : -0.07f;
   amount = Util::Clamp(amount, 0.f, 1.f);
   if (amount <= 0.f) {
@@ -2394,6 +2398,11 @@ bool ProceduralFaceDrawer::ApplyJamesExtras(Vision::ImageRGB565& output, bool di
         if (JamesIsLunar())     { cr = 255; cg = 200; cb = 70; }
         JamesDrawText(output, timeStr, x0, y0, scale, 0.75f * sleepAmt, cr, cg, cb);
         JamesDrawText(output, ampm, x0 + tw + 3, y0 + 7 * scale - 7, 1, 0.6f * sleepAmt, cr, cg, cb);
+      } else if (mode == JamesSleepMode::Clock || mode == JamesSleepMode::Both) {
+        // v25: he doesn't know the local time yet (time zone not set at setup) - say so instead of nothing
+        const std::string msg = "SET TIME ZONE";
+        const s32 mw = JamesTextWidth(msg, 1);
+        JamesDrawText(output, msg, (W - mw) / 2, std::max<s32>(2, (s32)(0.10f * H)), 1, 0.6f * sleepAmt, 170, 140, 255);
       }
       drew = true;
     }

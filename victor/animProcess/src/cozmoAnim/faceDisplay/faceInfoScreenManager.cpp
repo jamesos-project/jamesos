@@ -74,7 +74,7 @@ static std::string JamesOSName()  // JamesOS: real version from /anki/etc/jameso
   std::string id, label;
   std::getline(f, id);
   std::getline(f, label);
-  if (label.empty()) { return "JamesOS v24"; }
+  if (label.empty()) { return "JamesOS v25"; }
   return "JamesOS " + label + (id.compare(0, 5, "test-") == 0 ? " TEST" : "");
 }
 #define OSProject JamesOSName()  // JamesOS: read every time the screen is drawn (deploy writes it after he starts)
@@ -375,6 +375,9 @@ void FaceInfoScreenManager::Init(Anim::AnimContext* context, Anim::AnimationStre
     static const std::string kFunEyesOffFlag = kJamesDir + "/funeyes.off"; // v23: no pumpkin / heart / flag / year eyes
     static const std::string kFunEyesAutoFlag = kJamesDir + "/funeyes.auto"; // v24: only on the holiday itself
     static const std::string kSleepFile      = kJamesDir + "/sleepscreen";
+    static const std::string kHolidayTimeFile = kJamesDir + "/holidaytime";  // v25: season (default) | day
+    static const std::string kGalaxyAlwaysFlag = kJamesDir + "/galaxy.always"; // v25: PETTING -> ALWAYS
+    static const std::string kAnkiLightsFlag = "/data/data/enableankilights";  // v25: WireOS's original Anki lights switch
     static const std::string kLightsOffFlag  = kJamesDir + "/lights.off";
     static const std::string kJamesLightsOff = "/data/data/customBackpackLights/off.json";
 
@@ -401,8 +404,12 @@ void FaceInfoScreenManager::Init(Anim::AnimContext* context, Anim::AnimationStre
       if (has(w, "gold"))     { return std::string("gold"); }
       return std::string("white");
     };
-    auto petWord = [exists]() {   // v23: galaxy or off (the hearts mode was removed)
+    auto petWord = [exists]() {   // v25: galaxy (when petted) | always | off
+      if (exists(kGalaxyAlwaysFlag)) { return std::string("always"); }
       return std::string(exists(kHeartsOnFlag) ? "galaxy" : "off");
+    };
+    auto holidayTimeWord = [readWord, has]() {   // v25
+      return std::string(has(readWord(kHolidayTimeFile), "day") ? "day" : "season");
     };
     auto moodOn   = [exists]() { return exists(kMoodOnFlag); };
     auto sleepyOn = [exists]() { return !exists(kSleepyOffFlag); };
@@ -454,8 +461,10 @@ void FaceInfoScreenManager::Init(Anim::AnimContext* context, Anim::AnimationStre
       return std::string("off");
     };
     auto lightsSent  = [exists]() { return exists(kJamesLightsOff); };
-    auto lightsOn    = [exists, lightsSent]() { return lightsSent() && !exists(kLightsOffFlag); };
-    auto lightsState = [lightsSent, lightsOn]() {
+    auto ankiLights  = [exists]() { return exists(kAnkiLightsFlag); };
+    auto lightsOn    = [exists, lightsSent, ankiLights]() { return !ankiLights() && lightsSent() && !exists(kLightsOffFlag); };
+    auto lightsState = [lightsSent, lightsOn, ankiLights]() {
+      if (ankiLights()) { return std::string("ANKI"); }
       return std::string(lightsOn() ? "CUSTOM" : (lightsSent() ? "NORMAL" : "NOT SENT"));
     };
     auto battText = []() {
@@ -489,7 +498,7 @@ void FaceInfoScreenManager::Init(Anim::AnimContext* context, Anim::AnimationStre
     };
 
     auto drawCool = [drawList, upper, starsWord, petWord, moodOn, sleepyOn, themeWord, themeName, sleepWord,
-                     battText, badgeCountText, holidaysWord, funEyesWord]() {
+                     battText, badgeCountText, holidaysWord, funEyesWord, holidayTimeWord]() {
       const std::string theme = themeWord();
       const std::string themeShown = themeName(theme);
       JamesSetListValues(ScreenName::JamesOS, {
@@ -500,6 +509,7 @@ void FaceInfoScreenManager::Init(Anim::AnimContext* context, Anim::AnimationStre
         sleepyOn() ? "ON" : "OFF",
         themeShown,
         upper(holidaysWord()),
+        upper(holidayTimeWord()),
         upper(funEyesWord()),
         upper(sleepWord()),
         battText(),
@@ -581,12 +591,26 @@ void FaceInfoScreenManager::Init(Anim::AnimContext* context, Anim::AnimationStre
       LOG_INFO("FaceInfoScreenManager.JamesOS.Stars", "%s", style.c_str());
     };
     auto stepPet = [petWord, next]() {
-      const std::string fx = next({"galaxy", "off"}, petWord());
+      const std::string fx = next({"galaxy", "always", "off"}, petWord());
       if (fx == "off") {
         Util::FileUtils::DeleteFile(kHeartsOnFlag);
+        Util::FileUtils::DeleteFile(kGalaxyAlwaysFlag);
       } else {
         (void)Util::FileUtils::WriteFile(kHeartsOnFlag, "1");
-        (void)Util::FileUtils::WriteFile(kPetFxFile, fx + "\n");
+        (void)Util::FileUtils::WriteFile(kPetFxFile, "galaxy\n");
+        if (fx == "always") {
+          (void)Util::FileUtils::WriteFile(kGalaxyAlwaysFlag, "1");
+        } else {
+          Util::FileUtils::DeleteFile(kGalaxyAlwaysFlag);
+        }
+      }
+    };
+    auto stepHolidayTime = [holidayTimeWord, next]() {
+      const std::string t = next({"season", "day"}, holidayTimeWord());
+      if (t == "day") {
+        (void)Util::FileUtils::WriteFile(kHolidayTimeFile, "day\n");
+      } else {
+        Util::FileUtils::DeleteFile(kHolidayTimeFile);
       }
     };
     auto stepMood   = [moodOn, setFlag]()   { setFlag(kMoodOnFlag, !moodOn()); };
@@ -631,6 +655,7 @@ void FaceInfoScreenManager::Init(Anim::AnimContext* context, Anim::AnimationStre
     ADD_MENU_ITEM_WITH_ACTION(JamesOS, "SLEEPY EYES", change(stepSleepy));
     ADD_MENU_ITEM_WITH_ACTION(JamesOS, "THEME",       change(stepTheme));
     ADD_MENU_ITEM_WITH_ACTION(JamesOS, "HOLIDAYS",    change(stepHolidays));
+    ADD_MENU_ITEM_WITH_ACTION(JamesOS, "HOLIDAY TIME", change(stepHolidayTime));
     ADD_MENU_ITEM_WITH_ACTION(JamesOS, "FUN EYES",    change(stepFunEyes));
     ADD_MENU_ITEM_WITH_ACTION(JamesOS, "SLEEP",       change(stepSleep));
     ADD_MENU_ITEM(JamesOS, "STATUS", JamesStatus);
@@ -656,13 +681,15 @@ void FaceInfoScreenManager::Init(Anim::AnimContext* context, Anim::AnimationStre
     ADD_MENU_ITEM(JamesSleep,   "BACK", JamesOS);
 
     // ---- LIGHTS: lights load when Vector starts, so a change restarts him ----
-    auto setLights = [this, makeDir, drawLights, lightsSent, lightsOn](bool wantCustom) {
-      return FaceInfoScreen::MenuItemAction([this, makeDir, drawLights, lightsSent, lightsOn, wantCustom]() {
-        if (!lightsSent() || lightsOn() == wantCustom) {
+    auto setLights = [this, makeDir, drawLights, lightsSent, lightsOn, ankiLights](bool wantCustom) {
+      return FaceInfoScreen::MenuItemAction([this, makeDir, drawLights, lightsSent, lightsOn, ankiLights, wantCustom]() {
+        const bool wasAnki = ankiLights();
+        if (!wasAnki && (!lightsSent() || lightsOn() == wantCustom)) {
           // nothing to change (or lights not sent yet: ./jamesos.sh lights)
           drawLights();
           return ScreenName::JamesLights;
         }
+        Util::FileUtils::DeleteFile(kAnkiLightsFlag);   // v25: leaving the ANKI lights
         makeDir();
         if (wantCustom) {
           Util::FileUtils::DeleteFile(kLightsOffFlag);
@@ -677,6 +704,18 @@ void FaceInfoScreenManager::Init(Anim::AnimContext* context, Anim::AnimationStre
     ADD_MENU_ITEM(JamesLights, "BACK", JamesConf);
     ADD_MENU_ITEM_WITH_ACTION(JamesLights, "CUSTOM", setLights(true));
     ADD_MENU_ITEM_WITH_ACTION(JamesLights, "NORMAL", setLights(false));
+    // v25: the original Anki back lights (WireOS's own switch: /data/data/enableankilights)
+    FaceInfoScreen::MenuItemAction setAnkiLights = [this, drawLights, ankiLights]() {
+      if (ankiLights()) {
+        drawLights();
+        return ScreenName::JamesLights;
+      }
+      (void)Util::FileUtils::WriteFile(kAnkiLightsFlag, "1");
+      LOG_INFO("FaceInfoScreenManager.JamesOS.AnkiLights", "Rebooting to apply");
+      this->Reboot();
+      return ScreenName::Rebooting;
+    };
+    ADD_MENU_ITEM_WITH_ACTION(JamesLights, "ANKI", setAnkiLights);
 
     // ---- STATUS: battery, charger, temperature, time on, pets today ----
     FaceInfoScreen::MenuItemAction refreshStatus = [drawStatus]() {
@@ -855,7 +894,7 @@ void FaceInfoScreenManager::Init(Anim::AnimContext* context, Anim::AnimationStre
       } else {
         build = "NOT PUBLISHED";
       }
-      std::string name = "JAMESOS " + (label.empty() ? std::string("V24") : label);
+      std::string name = "JAMESOS " + (label.empty() ? std::string("V25") : label);
       for (auto& ch : name) { if (ch >= 'a' && ch <= 'z') { ch = (char)(ch - 'a' + 'A'); } }
       const bool proto = ProceduralFaceDrawer::JamesIsPrototype();   // v23: James's PVT
       std::pair<std::string, int> last = proto ? std::pair<std::string, int>{"PVT PROTOTYPE", 4}
