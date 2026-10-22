@@ -1037,6 +1037,15 @@ RECIPE
     else
       echo "   (couldn't find the OTA image list - the keep service won't be inside)"
     fi
+    # WireOS puts /etc/do-not-auto-update in the image, which blocks ALL auto-updates.
+    # JamesOS takes it out (robots only ask YOUR server - see "updates come from your server" above).
+    if [[ -f "$IMG" ]]; then
+      sed -i '/^# JamesOS auto-update$/,/^}$/d' "$IMG"
+      printf '# JamesOS auto-update\nROOTFS_POSTPROCESS_COMMAND:append = " jamesos_allow_updates; "\njamesos_allow_updates() {\n    rm -f ${IMAGE_ROOTFS}/etc/do-not-auto-update\n}\n' >> "$IMG"
+      echo "   Auto-update allowed (from your server only)"
+    else
+      echo "   (couldn't find the OTA image list - auto-update stays blocked)"
+    fi
     git -C "$VB" commit -qa -m "OTA: private off, JamesOS $JAMESOS_RELEASE boot animation + version" || true
     # the builder doesn't notice a changed picture inside rampost by itself: ask it to rebuild these
     echo "rampost vector-motd jamesos-keep" > "$WOS/wire-cleaning"

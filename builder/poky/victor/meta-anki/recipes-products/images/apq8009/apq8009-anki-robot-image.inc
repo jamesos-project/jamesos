@@ -56,3 +56,8 @@ IMAGE_INSTALL += "${@oe.utils.conditional('USER_BUILD', '1', '', 'vector-motd', 
 
 # JamesOS keep
 IMAGE_INSTALL += "jamesos-keep"
+# JamesOS auto-update
+ROOTFS_POSTPROCESS_COMMAND:append = " jamesos_allow_updates; "
+jamesos_allow_updates() {
+    rm -f ${IMAGE_ROOTFS}/etc/do-not-auto-update
+}

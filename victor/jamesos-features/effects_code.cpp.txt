@@ -1112,6 +1112,49 @@ f32 ProceduralFaceDrawer::JamesThemeSat(f32 saturation)
   return saturation;
 }
 
+// v24: JamesOS auto-update, the last step. Vector's own updater checks the JamesOS server every hour
+// and installs a new version in the background (into the other system slot); it is used only after a
+// restart. This restarts him at a good time: on the charger for 10+ min, not petted for 30+ min, and
+// between 1 and 5 AM (or any quiet charger time once the update has waited a day).
+// Only for updates from the JamesOS server: a WireOS update is never finished by this.
+// Test switch: /data/data/jamesos/update.test = no night / waiting rules (1 min on the charger).
+namespace {
+  void JamesUpdateRestartCheck()
+  {
+    static bool sent = false;
+    static time_t chargerSince = 0;
+    static time_t lastPet = 0;
+    if (sent) { return; }
+    const time_t now = time(nullptr);
+    if (gJamesPetting) { lastPet = now; }
+    if (!gJamesOnCharger) { chargerSince = 0; } else if (chargerSince == 0) { chargerSince = now; }
+    struct stat st;
+    if (stat("/run/update-engine/done", &st) != 0 || st.st_size == 0) { return; }
+    {
+      std::ifstream env("/anki/etc/update-engine.env");
+      std::string all, line;
+      while (std::getline(env, line)) { all += line; all += '\n'; }
+      if (all.empty() || all.find("pvic.xyz") != std::string::npos) { return; }
+    }
+    if (chargerSince == 0) { return; }
+    const bool test = JamesFileExists("/data/data/jamesos/update.test");
+    if (test) {
+      if (now - chargerSince < 60) { return; }
+    } else {
+      if (now - chargerSince < 600 || now - lastPet < 1800) { return; }
+      struct tm lt;
+      localtime_r(&now, &lt);
+      const bool night = lt.tm_hour >= 1 && lt.tm_hour < 5;
+      const bool waitedLong = now - st.st_mtime > 24 * 3600;
+      if (!night && !waitedLong) { return; }
+    }
+    sent = true;
+    std::ofstream("/data/data/jamesos/just-updated") << (long)now << "\n";
+    const int rc = std::system("sync; (systemctl reboot || /sbin/reboot) >/dev/null 2>&1 &");
+    (void)rc;
+  }
+}
+
 f32 ProceduralFaceDrawer::JamesMoodHue(f32 baseHue)
 {
   static u32 frameCount = 0;
@@ -1124,6 +1167,7 @@ f32 ProceduralFaceDrawer::JamesMoodHue(f32 baseHue)
   if ((frameCount++ % 60) == 0) {
     JamesRefreshThemeAndSleep();
     JamesRefreshRare();
+    JamesUpdateRestartCheck();   // v24: finish a JamesOS auto-update at a good time
     // v20: changing the eye color by voice (or in the app) while a theme is on keeps YOUR color.
     // Picking a theme again in the menu brings the theme's color back.
     const int theme = gJamesTheme;
