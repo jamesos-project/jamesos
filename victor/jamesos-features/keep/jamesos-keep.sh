@@ -51,7 +51,65 @@ bring_back() {
   fi
 }
 
+# v29: the robot's own startup lives in /persist (his boot animation, his own startup picture
+# jamesos/splash.raw, and jamesos/seasonal_off = no holiday boot themes), so updates don't touch it.
+# Some robots open /persist late, AFTER the startup screens: those screens then read the copy that
+# sits underneath it on the system drive - and an update replaces that. Keep that copy the same.
+STARTUP_FILES="boot_anim.raw jamesos/splash.raw jamesos/seasonal_off"
+startup_copy() {
+  [ "$(df /persist 2>/dev/null | tail -1 | awk '{print $NF}')" = /persist ] || return 0  # not its own drive (or not open yet)
+  T=/tmp/jamesos-root
+  mkdir -p "$T"
+  grep -q " $T " /proc/mounts || mount --bind / "$T" 2>/dev/null || return 0
+  need=0
+  for f in $STARTUP_FILES; do
+    if [ -e "/persist/$f" ]; then
+      cmp -s "/persist/$f" "$T/persist/$f" || need=1
+    elif [ -e "$T/persist/$f" ]; then
+      need=1
+    fi
+  done
+  umount "$T" 2>/dev/null
+  [ "$need" = 1 ] || return 0
+  W=0
+  if awk '$2=="/" && $4 ~ /^ro/ {f=1} END {exit !f}' /proc/mounts; then
+    W=1; mount -o remount,rw / || return 0
+  fi
+  if mount --bind / "$T" 2>/dev/null; then
+    mkdir -p "$T/persist/jamesos"
+    for f in $STARTUP_FILES; do
+      if [ -e "/persist/$f" ]; then
+        cp "/persist/$f" "$T/persist/$f.tmp" && mv "$T/persist/$f.tmp" "$T/persist/$f"
+      else
+        rm -f "$T/persist/$f"
+      fi
+    done
+    sync
+    umount "$T"
+    echo "JamesOS keep: startup copy brought up to date"
+  fi
+  [ "$W" = 1 ] && mount -o remount,ro /
+  true
+}
+
+# v29: /persist/jamesos/updates_locked = this robot never installs OS updates (not even by hand)
+# until it is removed (./jamesos.sh updates-lock off). Put the lock back after an update replaced it.
+updates_lock() {
+  [ -e "$P/updates_locked" ] || return 0
+  [ "$(readlink /etc/systemd/system/update-engine.service 2>/dev/null)" = /dev/null ] && return 0
+  W=0
+  if awk '$2=="/" && $4 ~ /^ro/ {f=1} END {exit !f}' /proc/mounts; then
+    W=1; mount -o remount,rw / || return 0
+  fi
+  ln -sf /dev/null /etc/systemd/system/update-engine.service
+  sync
+  [ "$W" = 1 ] && mount -o remount,ro /
+  systemctl daemon-reload 2>/dev/null
+  echo "JamesOS keep: updates lock put back"
+}
+
 save() {
+  startup_copy
   awk '$2=="/data" {f=1} END {exit !f}' /proc/mounts || return 0
   have=0
   for f in $KEEP; do [ -s "$J/$f" ] && have=1; done
@@ -108,6 +166,7 @@ boot() {
     [ -f "$DEF/jamesos-update.service" ] && cp "$DEF/jamesos-update.service" "$U/bin/jamesos-update.service"
   fi
 
+  updates_lock
   save
   sync
 }
@@ -141,6 +200,8 @@ forget() {
 
 case "$1" in
   boot)   boot ;;
+  startup) startup_copy ;;   # v29: refresh the startup copy now
+  lock)   updates_lock ;;
   save)   save ;;
   restore) restore ;;
   forget) forget ;;

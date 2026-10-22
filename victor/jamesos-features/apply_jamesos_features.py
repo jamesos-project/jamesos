@@ -63,7 +63,9 @@ START_TAG = "// ================================================================
 END_TAG   = "// ============================== end JamesOS starlight ==============================\n"
 
 LIST_SCREENS = ["JamesOS", "JamesStars", "JamesEffects", "JamesTheme", "JamesSleep", "JamesLights", "JamesStatus", "JamesBadges",
-                "JamesConf", "JamesAbout", "JamesRestart", "JamesSecret", "JamesProof", "JamesNews", "JamesFamily", "JamesGame"]
+                "JamesConf", "JamesAbout", "JamesRestart", "JamesSecret", "JamesProof", "JamesNews", "JamesFamily", "JamesGame",
+                "JamesMode", "JamesLab", "JamesEdition",   # v30: James's PVT edition
+                "JamesPhone"]   # v29: PHONE PAGE address
 
 
 def die(msg):
@@ -294,6 +296,8 @@ s = s.replace(screens_anchor, screens_anchor +
               "".join("  ADD_SCREEN(%s, Main); // JamesOS COOL FEATURES\n" % n for n in LIST_SCREENS), 1)
 
 menu = piece("menu_code.cpp.txt")
+if JAMESOS_PRIVATE:   # v30: James's PVT menus are only compiled into private builds
+    menu = menu.replace("#define JAMESOS_PRIVATE 0", "#define JAMESOS_PRIVATE 1", 1)
 if NEW_MAIN_MENU not in s:
     s = MAIN_BLOCK.sub(lambda _: NEW_MAIN_MENU, s, count=1)
 # SELF TEST and CLEAR OUT SOUL now open from CONF, so their EXIT goes back there
@@ -862,6 +866,10 @@ else:
     fn = "Result AnimEngine::Init()\n"
     must_have(en, fn, ENGINE_CPP)
     en = en.replace(fn, code.rstrip("\n") + "\n\n" + fn, 1)
+if "#include <cstdio>  // JamesOS v29" not in en:   # Travel Wi-Fi asks connmanctl (popen)
+    inc29 = '#include "cannedAnimLib/proceduralFace/proceduralFaceDrawer.h" // JamesOS companion page\n'
+    must_have(en, inc29, ENGINE_CPP)
+    en = en.replace(inc29, inc29 + "#include <cstdio>  // JamesOS v29\n", 1)
 call = "  JamesCompanionStart(_context->GetWebService()); // JamesOS companion page\n"
 if call not in en:
     start = "  FaceInfoScreenManager::getInstance()->Init(_context.get(), _animationStreamer.get());\n"
@@ -945,5 +953,33 @@ if "JamesNoteStream(" not in st:   # first v29 build had no debug note: add it
                           "    // Send the data\n"), 1)
     write(STREAMER_CPP, st)
 print("[26] Smooth sleep screen: stars and clock keep moving while he sleeps (real 6 seconds, not frames)")
+
+# ------------------------------------------------------------------ [27] James's PVT edition (v30, private)
+# On the prototype (and not switched to PUBLIC): the main screen says EXIT / MODE / LAB, the menus are gold.
+dh = read(DRAWER_H)
+if "JamesPvtEdition(" not in dh:
+    a27 = "    static s32  JamesBadgeCount();\n"
+    must_have(dh, a27, DRAWER_H)
+    dh = dh.replace(a27, a27 + "    static bool JamesPvtEdition(); // JamesOS v30 private: MODE / LAB menus on the prototype\n", 1)
+    write(DRAWER_H, dh)
+s27 = read(INFO_CPP)
+PVT_MAIN = """  if (ProceduralFaceDrawer::JamesPvtEdition()) {   // JamesOS v30: James's PVT edition
+    ADD_MENU_ITEM(Main, "EXIT", None);
+    ADD_MENU_ITEM(Main, "MODE", JamesMode);
+    ADD_MENU_ITEM(Main, "LAB", JamesLab);
+  } else {
+"""
+if PVT_MAIN not in s27:
+    must_have(s27, NEW_MAIN_MENU, INFO_CPP)
+    s27 = s27.replace(NEW_MAIN_MENU, PVT_MAIN + NEW_MAIN_MENU + "  }\n", 1)
+    write(INFO_CPP, s27)
+ld27 = read(LOADER_CPP)   # his gold lights load like a holiday set ("pvt"), plus the idle heartbeat ("off")
+ld27n = ld27.replace('"thanksgiving", "shiny"};', '"thanksgiving", "shiny", "pvt"};', 1)
+ld27n = ld27n.replace('{"charging", "petting", "streaming", "workingOnIt"};', '{"charging", "petting", "streaming", "workingOnIt", "off"};', 1)
+if '"shiny", "pvt"}' not in ld27n or '"workingOnIt", "off"}' not in ld27n:
+    die("Couldn't add the PVT back lights in " + LOADER_CPP)
+if ld27n != ld27:
+    write(LOADER_CPP, ld27n)
+print("[27] PVT edition: MODE / LAB / EDITION in gold on the prototype" + ("" if JAMESOS_PRIVATE else " (left out: private extras are off)"))
 
 print("\nAll done. Next: ./jamesos.sh go   (builds + deploys)")

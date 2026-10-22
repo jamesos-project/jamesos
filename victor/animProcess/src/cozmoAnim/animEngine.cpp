@@ -37,6 +37,7 @@
 
 #include "webServerProcess/src/webService.h"
 #include "cannedAnimLib/proceduralFace/proceduralFaceDrawer.h" // JamesOS companion page
+#include <cstdio>  // JamesOS v29
 #include <sys/stat.h>
 #include <unistd.h>
 #include <cstdlib>
@@ -108,6 +109,7 @@ AnimEngine::~AnimEngine()
 //   GET  /jamesos/api/state           -> JSON: robot card + every setting + the choices he has unlocked
 //   GET  /jamesos/api/badges          -> every badge (secret ones stay ??? until found)
 //   GET  /jamesos/api/whatsnew        -> the WHAT'S NEW list that came with this build
+//   GET  /jamesos/api/wifi            -> v29: Wi-Fi he's on now, saved networks, travel networks (never passwords)
 //   POST /jamesos/api/set  "key=value" -> changes one setting, answers with the new state
 // Safety: changes need POST + the "X-JamesOS: 1" header (other websites can't send that without
 // asking first, and we never say yes), and the address must be an IP or a vector name (DNS rebinding).
@@ -260,6 +262,7 @@ std::string StateJson()
 
   std::string j = "{";
   j += "\"host\":\"" + Esc(host) + "\",";
+  j += "\"nickname\":\"" + Esc(Word(F("nickname"))) + "\",";   // v29: his nickname (only a label, his real name stays)
   j += "\"version\":\"" + Esc(label) + "\",";
   j += "\"battery\":" + std::to_string(pct) + ",";
   j += std::string("\"charger\":") + (onCharger ? "true" : "false") + ",";
@@ -331,6 +334,171 @@ bool In(const std::string& v, const std::vector<std::string>& list)
 
 // Changes one setting the same way the EXTRAS / LIGHTS menus do.
 // Returns "" when done, "restart" when he restarts to apply it, or why it didn't work.
+// ---- v29: Travel Wi-Fi ----
+// Networks added on this page go into ONE connman file (/data/lib/connman is where Vector keeps his
+// Wi-Fi). connman watches that folder: a network in this file is joined by itself when it is in range,
+// and taking it out of the file forgets it. His other saved networks (from setup) are never touched.
+const std::string kTravelCfg = JAMES_COMPANION_ROOT "/data/lib/connman/jamesos-travel.config";
+const size_t kMaxTravel = 6;
+struct TravelNet { std::string name, pass; };
+
+std::string ToHex(const std::string& s)
+{
+  static const char* d = "0123456789abcdef";
+  std::string o;
+  for (const char c : s) { const unsigned char u = (unsigned char)c; o += d[u >> 4]; o += d[u & 15]; }
+  return o;
+}
+std::string FromHex(const std::string& h)
+{
+  std::string o;
+  auto nib = [](char c) -> int {
+    if (c >= '0' && c <= '9') { return c - '0'; }
+    if (c >= 'a' && c <= 'f') { return c - 'a' + 10; }
+    if (c >= 'A' && c <= 'F') { return c - 'A' + 10; }
+    return -1;
+  };
+  for (size_t i = 0; i + 1 < h.size(); i += 2) {
+    const int a = nib(h[i]), b = nib(h[i + 1]);
+    if (a < 0 || b < 0) { return ""; }
+    o += (char)(a * 16 + b);
+  }
+  return o;
+}
+// connman reads values like GKeyFile: backslash escapes, and spaces at the ends would be cut off
+std::string KeyEscape(const std::string& v)
+{
+  std::string o;
+  for (size_t i = 0; i < v.size(); ++i) {
+    const char c = v[i];
+    if (c == '\\') { o += "\\\\"; }
+    else if (c == ' ' && (i == 0 || i + 1 == v.size())) { o += "\\s"; }
+    else { o += c; }
+  }
+  return o;
+}
+std::string KeyUnescape(const std::string& v)
+{
+  std::string o;
+  for (size_t i = 0; i < v.size(); ++i) {
+    if (v[i] == '\\' && i + 1 < v.size()) {
+      const char n = v[++i];
+      o += (n == 's') ? ' ' : (n == 'n') ? '\n' : (n == 't') ? '\t' : (n == 'r') ? '\r' : n;
+    } else {
+      o += v[i];
+    }
+  }
+  return o;
+}
+std::vector<TravelNet> ReadTravel()
+{
+  std::vector<TravelNet> v;
+  std::ifstream in(kTravelCfg);
+  std::string line;
+  while (in.is_open() && std::getline(in, line)) {
+    if (!line.empty() && line.back() == '\r') { line.pop_back(); }
+    if (line.rfind("[service_", 0) == 0) { v.push_back(TravelNet()); continue; }
+    if (v.empty()) { continue; }
+    const size_t eq = line.find('=');
+    if (eq == std::string::npos) { continue; }
+    std::string k = line.substr(0, eq), val = line.substr(eq + 1);
+    while (!k.empty() && k.back() == ' ') { k.pop_back(); }
+    while (!val.empty() && val.front() == ' ') { val.erase(val.begin()); }
+    if (k == "SSID") { v.back().name = FromHex(val); }
+    else if (k == "Passphrase") { v.back().pass = KeyUnescape(val); }
+  }
+  std::vector<TravelNet> ok;
+  for (const auto& t : v) { if (!t.name.empty()) { ok.push_back(t); } }
+  return ok;
+}
+bool WriteTravel(const std::vector<TravelNet>& v)
+{
+  const std::string tmp = kTravelCfg + ".tmp";
+  if (v.empty()) { unlink(kTravelCfg.c_str()); return true; }
+  {
+    std::ofstream out(tmp, std::ios::trunc);
+    if (!out.is_open()) { return false; }
+    out << "# JamesOS Travel Wi-Fi (added on his phone page)\n";
+    for (size_t i = 0; i < v.size(); ++i) {
+      out << "\n[service_jamesos_travel_" << (i + 1) << "]\nType = wifi\nSSID = " << ToHex(v[i].name) << "\n";
+      if (!v[i].pass.empty()) { out << "Passphrase = " << KeyEscape(v[i].pass) << "\n"; }
+    }
+    if (!out.good()) { return false; }
+  }
+  chmod(tmp.c_str(), 0600);   // the passwords stay readable by root only
+  return rename(tmp.c_str(), kTravelCfg.c_str()) == 0;
+}
+std::string WifiJson()
+{
+  // "connmanctl services": 4 flag letters ("*AO " = saved, auto, online), the name, then the service id
+  std::string now;
+  std::vector<std::string> saved;
+  FILE* p = popen("if command -v timeout >/dev/null 2>&1; then timeout 4 connmanctl services; "
+                  "else connmanctl services; fi 2>/dev/null", "r");
+  if (p != nullptr) {
+    char buf[256];
+    while (fgets(buf, sizeof(buf), p) != nullptr) {
+      std::string l(buf);
+      while (!l.empty() && (l.back() == '\n' || l.back() == '\r')) { l.pop_back(); }
+      if (l.size() < 6) { continue; }
+      const std::string flags = l.substr(0, 4);
+      std::string rest = l.substr(4);
+      while (!rest.empty() && rest.back() == ' ') { rest.pop_back(); }
+      const size_t sp = rest.find_last_of(' ');
+      if (sp == std::string::npos) { continue; }
+      std::string name = rest.substr(0, sp);
+      while (!name.empty() && name.back() == ' ') { name.pop_back(); }
+      while (!name.empty() && name.front() == ' ') { name.erase(name.begin()); }
+      if (name.empty()) { continue; }
+      const bool on = flags.find('O') != std::string::npos || flags.find('R') != std::string::npos;
+      if (on && now.empty()) { now = name; }
+      if (flags[0] == '*') {
+        bool have = false;
+        for (const auto& s2 : saved) { if (s2 == name) { have = true; } }
+        if (!have) { saved.push_back(name); }
+      }
+    }
+    pclose(p);
+  }
+  std::vector<std::string> travel;
+  for (const auto& t : ReadTravel()) { travel.push_back(t.name); }
+  std::vector<std::string> home;   // saved from setup (the page doesn't remove these)
+  for (const auto& s2 : saved) {
+    bool isTravel = false;
+    for (const auto& t : travel) { if (t == s2) { isTravel = true; } }
+    if (!isTravel) { home.push_back(s2); }
+  }
+  return "{\"now\":\"" + Esc(now) + "\",\"saved\":" + List(home) + ",\"travel\":" + List(travel) +
+         ",\"max\":" + std::to_string(kMaxTravel) + "}";
+}
+std::string WifiAdd(const std::string& v)   // "NAME<tab>PASSWORD" (no password = an open Wi-Fi)
+{
+  const size_t tab = v.find('\t');
+  const std::string name = tab == std::string::npos ? v : v.substr(0, tab);
+  const std::string pass = tab == std::string::npos ? "" : v.substr(tab + 1);
+  if (name.empty() || name.size() > 32) { return "Wi-Fi names are 1 to 32 letters"; }
+  for (const char c : name) { if ((unsigned char)c < 0x20) { return "that Wi-Fi name has a strange letter"; } }
+  if (!pass.empty()) {
+    if (pass.size() < 8 || pass.size() > 63) { return "Wi-Fi passwords are 8 to 63 letters"; }
+    for (const char c : pass) { if ((unsigned char)c < 0x20 || (unsigned char)c > 0x7e) { return "the password has a letter Vector can't use"; } }
+  }
+  std::vector<TravelNet> v2 = ReadTravel();
+  bool replaced = false;
+  for (auto& t : v2) { if (t.name == name) { t.pass = pass; replaced = true; } }
+  if (!replaced) {
+    if (v2.size() >= kMaxTravel) { return "he can keep 6 travel Wi-Fis. Remove one first"; }
+    v2.push_back(TravelNet{name, pass});
+  }
+  return WriteTravel(v2) ? "" : "couldn't save it on the robot";
+}
+std::string WifiDel(const std::string& name)
+{
+  std::vector<TravelNet> v2 = ReadTravel(), keep;
+  for (const auto& t : v2) { if (t.name != name) { keep.push_back(t); } }
+  if (keep.size() == v2.size()) { return "that Wi-Fi isn't on the travel list"; }
+  return WriteTravel(keep) ? "" : "couldn't save it on the robot";
+}
+
 std::string Set(const std::string& key, const std::string& v)
 {
   if (key == "stars") {
@@ -377,6 +545,23 @@ std::string Set(const std::string& key, const std::string& v)
   if (key == "sleep") {
     if (!In(v, {"stars", "clock", "both", "off"})) { return "bad value"; }
     if (v == "off") { Del(F("sleepscreen")); } else { Put(F("sleepscreen"), v + "\n"); }
+    return "";
+  }
+  if (key == "wifiadd") { return WifiAdd(v); }   // v29: Travel Wi-Fi
+  if (key == "wifidel") { return WifiDel(v); }
+  if (key == "nickname") {   // v29: "off" or up to 16 letters/numbers/space/-/' (only shown on this page)
+    if (v == "off") { Del(F("nickname")); return ""; }
+    std::string n = v;
+    while (!n.empty() && n.front() == ' ') { n.erase(n.begin()); }
+    while (!n.empty() && n.back() == ' ') { n.pop_back(); }
+    if (n.empty()) { Del(F("nickname")); return ""; }
+    if (n.size() > 16) { return "name is too long (16 letters)"; }
+    for (const char c : n) {
+      if (!((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == ' ' || c == '-' || c == '\'')) {
+        return "letters and numbers only";
+      }
+    }
+    Put(F("nickname"), n + "\n");
     return "";
   }
   if (key == "birthday") {   // "off" or "MM-DD" or "MM-DD NAME" (A-Z, space, - and ' only, up to 16)
@@ -459,6 +644,10 @@ int Handle(struct mg_connection* conn, void* /*cbdata*/)
     Reply(conn, 200, BadgesJson());
     return 1;
   }
+  if (uri == "/jamesos/api/wifi" && method == "GET") {   // v29
+    Reply(conn, 200, WifiJson());
+    return 1;
+  }
   if (uri == "/jamesos/api/whatsnew" && method == "GET") {
     Reply(conn, 200, WhatsNewJson());
     return 1;
@@ -472,7 +661,7 @@ int Handle(struct mg_connection* conn, void* /*cbdata*/)
       Reply(conn, 403, "{\"error\":\"not allowed\"}");
       return 1;
     }
-    char buf[128] = {0};
+    char buf[256] = {0};   // v29: room for a Wi-Fi name + password
     int len = 0;
     while (len < (int)sizeof(buf) - 1) {
       const int r = mg_read(conn, buf + len, sizeof(buf) - 1 - (size_t)len);
@@ -489,7 +678,7 @@ int Handle(struct mg_connection* conn, void* /*cbdata*/)
       Reply(conn, 400, "{\"error\":\"" + Esc(result) + "\"}");
       return 1;
     }
-    LOG_INFO("JamesOS.Companion.Set", "%s=%s", key.c_str(), value.c_str());
+    LOG_INFO("JamesOS.Companion.Set", "%s=%s", key.c_str(), key == "wifiadd" ? "(not logged)" : value.c_str());
     sync();
     const std::string state = StateJson();
     Reply(conn, 200, "{\"restart\":" + std::string(result == "restart" ? "true" : "false") + ",\"state\":" + state + "}");

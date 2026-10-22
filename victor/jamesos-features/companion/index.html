@@ -39,6 +39,10 @@ button{cursor:pointer}
 .status{padding:20px 0 28px}
 .status h1{margin:0;font-size:32px;line-height:1.15;font-weight:600;letter-spacing:-.02em;overflow-wrap:anywhere}
 .status .state{margin:6px 0 0;font-size:20px;color:var(--muted)}
+.nm{display:flex;align-items:center;gap:6px}
+.pen{flex:none;width:40px;height:40px;border-radius:50%;border:0;background:none;color:var(--muted);display:grid;place-items:center}
+.pen:hover{background:var(--panel);color:var(--text)}
+.real{margin:2px 0 0;font-size:14px;color:var(--faint)}
 .status .state b{color:var(--text);font-weight:500}
 .meter{margin-top:18px;height:14px;border-radius:7px;background:var(--panel);overflow:hidden;position:relative}
 .meter i{position:absolute;inset:0 auto 0 0;width:0;border-radius:7px;background:var(--gold);transition:width .6s ease}
@@ -60,6 +64,13 @@ button.item:hover{background:var(--raised)}
 .list.later .ic{background:var(--raised);color:var(--faint)}
 .list.later .tx b{color:#CFCDC7}
 .soon{font-size:13px;color:var(--faint)}
+.rm{flex-shrink:0;height:36px;padding:0 14px;border-radius:18px;border:1px solid var(--edge);background:none;color:var(--text);font-size:14px}
+.rm:hover{border-color:var(--muted)}
+.tag{flex-shrink:0;font-size:13px;color:var(--gold);background:var(--gold-tint);border-radius:8px;padding:3px 8px}
+.pw{position:relative}
+.pw input{padding-right:64px}
+.pw button{position:absolute;right:6px;bottom:6px;height:36px;padding:0 10px;border:0;border-radius:10px;background:none;color:var(--muted);font-size:14px}
+.note{margin:12px 4px 0;font-size:14px;color:var(--faint);line-height:1.5}
 
 /* sub pages */
 .head{display:flex;align-items:center;gap:4px;height:64px;margin-left:-10px}
@@ -135,7 +146,8 @@ button.item:hover{background:var(--raised)}
   <main id="page-home">
     <div class="offline" id="offline">Can't reach your Vector. Check that he's on and that this phone is on the same Wi-Fi.</div>
     <section class="status" aria-label="Your Vector">
-      <h1 id="rname">Your Vector</h1>
+      <div class="nm"><h1 id="rname">Your Vector</h1><button class="pen" type="button" data-go="name" aria-label="Give him a nickname"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/></svg></button></div>
+      <p class="real" id="rreal" hidden></p>
       <p class="state" id="rstate">Connecting…</p>
       <div class="meter" id="meter" role="progressbar" aria-label="Battery" aria-valuemin="0" aria-valuemax="100"><i id="bfill"></i></div>
       <ul class="facts" id="facts"></ul>
@@ -149,6 +161,10 @@ button.item:hover{background:var(--raised)}
       <li><button class="item" type="button" data-go="utility">
         <span class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="9" width="18" height="12" rx="2"/><path d="M12 9v12M3 14h18M12 9c-2-4-6-4-6-1.5S10 9 12 9zm0 0c2-4 6-4 6-1.5S14 9 12 9z"/></svg></span>
         <span class="tx"><b>Birthday</b><small id="uhint">Not set</small></span>
+        <svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button></li>
+      <li><button class="item" type="button" data-go="wifi">
+        <span class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 8.8a15 15 0 0 1 20 0M5 12.6a10 10 0 0 1 14 0M8.5 16.4a5 5 0 0 1 7 0"/><circle cx="12" cy="20" r="1"/></svg></span>
+        <span class="tx"><b>Wi-Fi</b><small>Add a Wi-Fi for when you travel</small></span>
         <svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button></li>
       <li><button class="item" type="button" data-go="badges">
         <span class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="9" r="6"/><path d="M8.5 14.2L7 22l5-3 5 3-1.5-7.8"/></svg></span>
@@ -198,6 +214,41 @@ button.item:hover{background:var(--raised)}
     <h1 class="page-title">What's new <span class="vtag" id="nver">…</span></h1>
     <p class="intro">What changed in the version he's running now.</p>
     <ul class="list nlist" id="nlist" style="margin-top:18px"></ul>
+  </main>
+
+  <!-- TRAVEL WI-FI -->
+  <main id="page-wifi" hidden>
+    <div class="head"><button class="back" type="button" data-go="home" aria-label="Back"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></button><span>Home</span></div>
+    <h1 class="page-title">Wi-Fi</h1>
+    <p class="intro" id="wnow">Checking…</p>
+
+    <h2 class="group-title">Travel Wi-Fi</h2>
+    <ul class="list" id="wtravel"></ul>
+
+    <h2 class="group-title">Add a Wi-Fi for later</h2>
+    <div class="form">
+      <label class="field">Wi-Fi name<input id="wname" type="text" maxlength="32" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Exactly as it's written"></label>
+      <label class="field pw">Password<input id="wpass" type="password" maxlength="63" autocomplete="new-password" placeholder="Leave empty if it has none"><button type="button" id="wshow">Show</button></label>
+      <button class="btn" type="button" id="wadd">Add Wi-Fi</button>
+    </div>
+    <p class="note">He joins it by himself when he's there. Vector only sees 2.4 GHz Wi-Fi (on a phone hotspot, turn on Maximize Compatibility). If that Wi-Fi is nearby right now, he may switch to it. Voice needs wire-pod on the same Wi-Fi.</p>
+
+    <h2 class="group-title">Saved from setup</h2>
+    <ul class="list" id="wsaved"></ul>
+    <p class="note">To change these, use Just change his Wi-Fi on the JamesOS setup site.</p>
+  </main>
+
+  <!-- NICKNAME -->
+  <main id="page-name" hidden>
+    <div class="head"><button class="back" type="button" data-go="home" aria-label="Back"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></button><span>Home</span></div>
+    <h1 class="page-title">His nickname</h1>
+    <p class="intro" id="nmnow">Shown on this page instead of his robot name.</p>
+    <div class="form" style="margin-top:18px">
+      <label class="field">Nickname<input id="nmin" type="text" maxlength="16" autocomplete="off" autocapitalize="words" placeholder="Like Max or Sparky"></label>
+      <button class="btn" type="button" id="nmsave">Save nickname</button>
+      <button class="btn quiet" type="button" id="nmclear" hidden>Use his robot name</button>
+    </div>
+    <p class="intro" style="margin-top:14px">His robot name (<span id="nmhost">Vector-XXXX</span>) stays the same, so wire-pod, the app and the setup site still find him.</p>
   </main>
 
   <!-- BIRTHDAY -->
@@ -268,7 +319,7 @@ button.item:hover{background:var(--raised)}
   var LABEL = {};
   GROUPS.forEach(function (g) { g[1].forEach(function (r) { LABEL[r[0]] = r; }); });
 
-  var TITLES = {home: "JamesOS", customize: "Customize", badges: "Badges", news: "What's new", utility: "Birthday"};
+  var TITLES = {home: "JamesOS", customize: "Customize", badges: "Badges", news: "What's new", utility: "Birthday", name: "Nickname", wifi: "Wi-Fi"};
   var MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
   function $(id) { return document.getElementById(id); }
@@ -283,7 +334,7 @@ button.item:hover{background:var(--raised)}
   var toastTimer;
   function toast(msg) {
     var t = $("toast"); t.textContent = msg; t.classList.add("show");
-    clearTimeout(toastTimer); toastTimer = setTimeout(function () { t.classList.remove("show"); }, 2600);
+    clearTimeout(toastTimer); toastTimer = setTimeout(function () { t.classList.remove("show"); }, msg.length > 50 ? 6000 : 2600);
   }
 
   function request(method, path, body) {
@@ -345,8 +396,10 @@ button.item:hover{background:var(--raised)}
     $("net").classList.toggle("off", off);
     $("net").classList.toggle("wait", !s && !off);
     if (!s) return;
-    var name = s.host || "Your Vector";
+    var name = s.nickname || s.host || "Your Vector";
     $("rname").textContent = name;
+    $("rreal").hidden = !(s.nickname && s.host);
+    $("rreal").textContent = s.host || "";
     var full = s.charger && !s.charging, st = $("rstate"); st.textContent = "";
     st.appendChild(el("b", null, s.charger ? (s.charging ? "Charging" : "Fully charged") : "Off the charger"));
     if (s.battery >= 0 && !full) st.appendChild(document.createTextNode(", " + Math.min(100, s.battery) + "%"));
@@ -362,6 +415,7 @@ button.item:hover{background:var(--raised)}
     $("ncount").textContent = s.version ? "In " + s.version : "In this version";
     $("uhint").textContent = s.birthday ? MONTHS[s.birthday.month - 1] + " " + s.birthday.day : "Not set";
     drawBirthday();
+    drawName();
   }
 
   function draw() { drawHome(); drawGroups(); }
@@ -410,6 +464,8 @@ button.item:hover{background:var(--raised)}
     if (page === "badges") loadBadges();
     if (page === "news") loadNews();
     if (page === "utility") { bdDirty = false; drawBirthday(); }
+    if (page === "name") { nmDirty = false; drawName(); }
+    if (page === "wifi") loadWifi();
     if (location.hash !== "#" + page) history.replaceState(null, "", "#" + page);
     window.scrollTo(0, 0);
   }
@@ -511,6 +567,98 @@ button.item:hover{background:var(--raised)}
       : "He celebrates with you on the day. It's saved on the robot only.";
     if (b) { $("bdm").value = String(b.month); $("bdm").dispatchEvent(new Event("change")); bdDirty = false; $("bdd").value = String(b.day); $("bdn").value = b.name || ""; }
   }
+
+  // ---- nickname ----
+  var nmDirty = false;
+  $("nmin").addEventListener("input", function () { nmDirty = true; });
+  function nickClean(t) {
+    t = String(t || "");
+    if (t.normalize) t = t.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    return t.replace(/[^A-Za-z0-9 '\-]/g, "").replace(/\s+/g, " ").trim();
+  }
+  function saveName(v, okMsg) {
+    if (busy) return;
+    busy = true;
+    request("POST", "set", "nickname=" + v).then(function (j) {
+      busy = false; nmDirty = false; if (j.state) state = j.state; draw(); toast(okMsg);
+    }).catch(function (e) {
+      busy = false; toast(e.server ? "Not saved: " + e.message : "Not saved. Can't reach your Vector");
+    });
+  }
+  $("nmsave").addEventListener("click", function () {
+    var n = nickClean($("nmin").value);
+    if (!n) { saveName("off", "Nickname removed"); return; }
+    if (n.length > 16) { toast("Use 16 letters or fewer"); return; }
+    if (n.toLowerCase() === "off") { toast("Pick another nickname"); return; }
+    $("nmin").value = n;
+    saveName(n, "Nickname saved: " + n);
+  });
+  $("nmclear").addEventListener("click", function () { saveName("off", "Nickname removed"); });
+  function drawName() {
+    if (!state) return;
+    $("nmhost").textContent = state.host || "Vector";
+    $("nmclear").hidden = !state.nickname;
+    $("nmnow").textContent = state.nickname
+      ? "He's called " + state.nickname + " on this page."
+      : "Shown on this page instead of his robot name.";
+    if (!nmDirty) $("nmin").value = state.nickname || "";
+  }
+
+  // ---- travel Wi-Fi ----
+  var WIFIICON = '<path d="M2 8.8a15 15 0 0 1 20 0M5 12.6a10 10 0 0 1 14 0M8.5 16.4a5 5 0 0 1 7 0"/><circle cx="12" cy="20" r="1"/>';
+  function wifiRow(name, right) {
+    var li = el("li"), it = el("div", "item"), ic = el("span", "ic"); ic.appendChild(svg(WIFIICON)); it.appendChild(ic);
+    var tx = el("span", "tx"); tx.appendChild(el("b", null, name)); it.appendChild(tx);
+    if (right) it.appendChild(right);
+    li.appendChild(it); return li;
+  }
+  function emptyRow(text) { var li = el("li"), it = el("div", "item"); it.appendChild(el("span", "tx")).appendChild(el("small", null, text)); li.appendChild(it); return li; }
+  function drawWifi(w) {
+    $("wnow").textContent = w.now ? "He's on " + w.now + " right now." : "He isn't on Wi-Fi right now.";
+    var t = $("wtravel"); t.textContent = "";
+    (w.travel || []).forEach(function (n) {
+      var b = el("button", "rm", "Remove"); b.type = "button";
+      b.setAttribute("aria-label", "Remove " + n);
+      b.addEventListener("click", function () { wifiSend("wifidel=" + n, "Removed " + n); });
+      t.appendChild(wifiRow(n, n === w.now ? (function () { var x = el("span", null); x.appendChild(el("span", "tag", "On now")); x.appendChild(document.createTextNode(" ")); x.appendChild(b); return x; })() : b));
+    });
+    if (!(w.travel || []).length) t.appendChild(emptyRow("None yet. Add one below before you go."));
+    var sv = $("wsaved"); sv.textContent = "";
+    (w.saved || []).forEach(function (n) { sv.appendChild(wifiRow(n, n === w.now ? el("span", "tag", "On now") : null)); });
+    if (!(w.saved || []).length) sv.appendChild(emptyRow("None"));
+    $("wadd").disabled = (w.travel || []).length >= (w.max || 6);
+  }
+  function loadWifi() {
+    request("GET", "wifi").then(drawWifi).catch(function () { $("wnow").textContent = "Can't reach your Vector."; });
+  }
+  function wifiSend(body, okMsg, done) {
+    if (busy) return;
+    busy = true;
+    request("POST", "set", body).then(function () {
+      busy = false; toast(okMsg); if (done) done(); loadWifi();
+    }).catch(function (e) {
+      busy = false;
+      if (e.server) { toast("Not saved: " + e.message); return; }
+      // lost him right after adding a Wi-Fi: he has most likely joined it already
+      if (body.indexOf("wifiadd=") === 0) { toast("Lost him. He may be on that Wi-Fi now: see CONF > PHONE PAGE on his screen"); return; }
+      toast("Not saved. Can't reach your Vector");
+    });
+  }
+  $("wshow").addEventListener("click", function () {
+    var p = $("wpass"), show = p.type === "password";
+    p.type = show ? "text" : "password"; $("wshow").textContent = show ? "Hide" : "Show";
+  });
+  $("wadd").addEventListener("click", function () {
+    var n = $("wname").value, pw = $("wpass").value;
+    if (!n.trim()) { toast("Type the Wi-Fi name"); return; }
+    if (/[\t\n\r]/.test(n + pw)) { toast("Remove the tab or line break"); return; }
+    if (pw && (pw.length < 8 || pw.length > 63)) { toast("Wi-Fi passwords are 8 to 63 letters"); return; }
+    if (pw && /[^\x20-\x7e]/.test(pw)) { toast("The password has a letter Vector can't use"); return; }
+    wifiSend("wifiadd=" + n + "\t" + pw, "Added " + n, function () {
+      $("wpass").value = ""; $("wpass").type = "password"; $("wshow").textContent = "Show";
+      $("wname").value = "";
+    });
+  });
 
   go(location.hash.slice(1) || "home");
   draw(); refresh(); setInterval(refresh, 5000);

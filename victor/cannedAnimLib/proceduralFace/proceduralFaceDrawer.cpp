@@ -1871,6 +1871,13 @@ void ProceduralFaceDrawer::JamesSetPetting(bool petting)
   }
 }
 
+// v30 private: James's PVT edition menus (MODE / LAB, gold) are on when this robot is the prototype
+// and LAB -> EDITION hasn't been switched to PUBLIC. Read straight from the files (works at start-up too).
+bool ProceduralFaceDrawer::JamesPvtEdition()
+{
+  return false;
+}
+
 // v29: should the face keep being redrawn even without new animation frames?
 // Yes while he can show the sleep screen (on the charger, sleep screen on), so stars twinkle and the clock ticks.
 bool ProceduralFaceDrawer::JamesWantsFrames()
@@ -2098,7 +2105,7 @@ std::string ProceduralFaceDrawer::JamesLightTheme()
     case JamesTheme::Easter:       return "easter";
     case JamesTheme::Fireworks:    return "fireworks";
     case JamesTheme::Thanksgiving: return "thanksgiving";
-    default:                       return "";
+    default:                       return JamesPvtEdition() ? "pvt" : "";   // v30: James's own gold lights
   }
 }
 
@@ -3513,6 +3520,7 @@ bool ProceduralFaceDrawer::ApplyJamesExtras(Vision::ImageRGB565& output, bool di
   }
 
 
+  // (v30: the PROTOTYPE - 2018 plaque under his sleeping eyes was removed - it covered the sleep screen)
 
   // ---------------- pet goal celebration: rainbow confetti ----------------
   if (gJamesCelebrate.exchange(0) != 0) {

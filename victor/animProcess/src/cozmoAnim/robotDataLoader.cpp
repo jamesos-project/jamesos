@@ -195,8 +195,8 @@ void RobotDataLoader::LoadNonConfigData()
     if (!_ankilights() && stat("/data/data/jamesos/lights.off", &jamesSt) != 0) {
       static const char* const kJamesHolidayLights[] = {"halloween", "christmas", "lunar", "newyear", "newyear-midnight",
                                                         "valentine", "mothersday", "stpatrick", "easter", "fireworks",
-                                                        "thanksgiving", "shiny"};
-      static const char* const kJamesLightNames[] = {"charging", "petting", "streaming", "workingOnIt"};
+                                                        "thanksgiving", "shiny", "pvt"};
+      static const char* const kJamesLightNames[] = {"charging", "petting", "streaming", "workingOnIt", "off"};
       int jamesLoaded = 0;
       for (const char* holiday : kJamesHolidayLights) {
         for (const char* light : kJamesLightNames) {

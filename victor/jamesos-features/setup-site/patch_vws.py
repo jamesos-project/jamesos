@@ -95,6 +95,14 @@ if "window.JAMESOS_OTAS" not in s or "/^https?:/.test(endpoint)" not in s:
     sys.exit("couldn't add the online OTA links to rts-js/main.js (different Vector Web Setup version?)")
 if 'setPhase("containerOtaComplete");' not in s:
     sys.exit("couldn't find the OTA-complete step in rts-js/main.js (different Vector Web Setup version?)")
+# v29: "Just change his Wi-Fi" - always show the Wi-Fi list, and stop after Wi-Fi (no OTA)
+if "JAMESOS_WIFI_ONLY" not in s:
+    s = s.replace('      toggleIcon("iconWifi", true);\n      setupOTAFiles();',
+                  '      toggleIcon("iconWifi", true);\n      if (window.JAMESOS_WIFI_ONLY) { window.jamesWifiDone(ssid); return; }  // JamesOS\n      setupOTAFiles();', 1)
+    s = s.replace('      if (m.value.wifiState == 1 || m.value.wifiState == 2) {\n        toggleIcon("iconWifi", true);\n        // skip wifi scan',
+                  '      if (!window.JAMESOS_WIFI_ONLY && (m.value.wifiState == 1 || m.value.wifiState == 2)) {  // JamesOS\n        toggleIcon("iconWifi", true);\n        // skip wifi scan', 1)
+if s.count("JAMESOS_WIFI_ONLY") < 2:
+    sys.exit("couldn't add 'Just change his Wi-Fi' to rts-js/main.js (different Vector Web Setup version?)")
 if s != o: write(f, s); changed.append(f)
 
 # --- the robot downloads the OTA from this address: let jamesos.sh pick the right one
@@ -189,6 +197,9 @@ a { color: var(--jos-gold); }
 .jos-credits > div:first-child { border-top: 0; }
 .jos-credits dt { color: var(--jos-text); font-weight: 500; font-size: 15px; }
 .jos-credits dd { margin: 0; color: var(--jos-muted); font-size: 15px; line-height: 1.5; }
+.jos-actions { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+.jos-actions .jos-secondary { margin-top: 0; height: 54px; padding: 0 28px; }
+.jos-actions .jos-secondary:hover { border-color: var(--jos-muted); }
 @media (max-width: 860px) {
   .jos-hero { grid-template-columns: 1fr; gap: 28px; }
   .jos-features { grid-template-columns: 1fr 1fr; }

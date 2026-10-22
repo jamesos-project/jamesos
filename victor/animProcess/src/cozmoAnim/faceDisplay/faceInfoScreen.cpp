@@ -242,6 +242,10 @@ static bool JamesIsListScreen(ScreenName name)
     case ScreenName::JamesNews:
     case ScreenName::JamesFamily:
     case ScreenName::JamesGame:
+    case ScreenName::JamesMode:
+    case ScreenName::JamesLab:
+    case ScreenName::JamesEdition:
+    case ScreenName::JamesPhone:
       return true;
     default:
       return false;
@@ -267,6 +271,10 @@ static const char* JamesListTitle(ScreenName name)
     case ScreenName::JamesNews:    return "WHAT'S NEW";
     case ScreenName::JamesFamily:  return "MY FAMILY";
     case ScreenName::JamesGame:    return "TIC-TAC-TOE";
+    case ScreenName::JamesMode:    return "MODE";      // v30: James's PVT edition
+    case ScreenName::JamesLab:     return "LAB";
+    case ScreenName::JamesEdition: return "EDITION";
+    case ScreenName::JamesPhone:   return "PHONE PAGE";   // v29
     default:                       return "JAMESOS";
   }
 }
@@ -421,7 +429,11 @@ static void JamesDrawList(Vision::ImageRGB565& img, ScreenName name,
   }
   static const ColorRGBA kBg(u8(0), u8(0), u8(0));
   static const ColorRGBA kFg(u8(255), u8(255), u8(255));
-  static const ColorRGBA kGreen(u8(80), u8(255), u8(80));
+  // v30: James's PVT edition is gold (matches his gold backpack), everyone else green
+  const bool pvt = ProceduralFaceDrawer::JamesPvtEdition();
+  static const ColorRGBA kGreenNormal(u8(80), u8(255), u8(80));
+  static const ColorRGBA kPvtGold(u8(242), u8(181), u8(68));
+  const ColorRGBA& kGreen = pvt ? kPvtGold : kGreenNormal;
   static const ColorRGBA kRed(u8(255), u8(90), u8(90));
   static const ColorRGBA kDim(u8(150), u8(150), u8(150));
   static const ColorRGBA kGold(u8(255), u8(200), u8(40));

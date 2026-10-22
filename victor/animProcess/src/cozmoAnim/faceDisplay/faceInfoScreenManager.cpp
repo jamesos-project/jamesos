@@ -74,7 +74,7 @@ static std::string JamesOSName()  // JamesOS: real version from /anki/etc/jameso
   std::string id, label;
   std::getline(f, id);
   std::getline(f, label);
-  if (label.empty()) { return "JamesOS v28"; }
+  if (label.empty()) { return "JamesOS v29"; }
   return "JamesOS " + label + (id.compare(0, 5, "test-") == 0 ? " TEST" : "");
 }
 #define OSProject JamesOSName()  // JamesOS: read every time the screen is drawn (deploy writes it after he starts)
@@ -298,6 +298,10 @@ void FaceInfoScreenManager::Init(Anim::AnimContext* context, Anim::AnimationStre
   ADD_SCREEN(JamesNews, Main); // JamesOS COOL FEATURES
   ADD_SCREEN(JamesFamily, Main); // JamesOS COOL FEATURES
   ADD_SCREEN(JamesGame, Main); // JamesOS COOL FEATURES
+  ADD_SCREEN(JamesMode, Main); // JamesOS COOL FEATURES
+  ADD_SCREEN(JamesLab, Main); // JamesOS COOL FEATURES
+  ADD_SCREEN(JamesEdition, Main); // JamesOS COOL FEATURES
+  ADD_SCREEN(JamesPhone, Main); // JamesOS COOL FEATURES
 
 
   // ========== Screen Customization ========= 
@@ -352,9 +356,15 @@ void FaceInfoScreenManager::Init(Anim::AnimContext* context, Anim::AnimationStre
   };
   SET_ENTER_ACTION(Main, mainEnterFcn);
 
+  if (ProceduralFaceDrawer::JamesPvtEdition()) {   // JamesOS v30: James's PVT edition
+    ADD_MENU_ITEM(Main, "EXIT", None);
+    ADD_MENU_ITEM(Main, "MODE", JamesMode);
+    ADD_MENU_ITEM(Main, "LAB", JamesLab);
+  } else {
   ADD_MENU_ITEM(Main, "EXIT", None);
   ADD_MENU_ITEM(Main, "EXTRAS", JamesOS); // JamesOS (v24: was COOL)
   ADD_MENU_ITEM(Main, "CONF", JamesConf); // JamesOS: self test, clear out soul... are in here now
+  }
 
   // >>> JamesOS MODS menu (begin)
   // JamesOS menus (v18), in the classic "CONFIGURATION PAGE 1" style:
@@ -381,6 +391,11 @@ void FaceInfoScreenManager::Init(Anim::AnimContext* context, Anim::AnimationStre
     static const std::string kAnkiLightsFlag = "/data/data/enableankilights";  // v25: WireOS's original Anki lights switch
     static const std::string kLightsOffFlag  = kJamesDir + "/lights.off";
     static const std::string kJamesLightsOff = "/data/data/customBackpackLights/off.json";
+
+    // v30: James's PVT edition (private builds only): MODE / LAB instead of EXTRAS / CONF
+    const bool jamesPvt = ProceduralFaceDrawer::JamesPvtEdition();
+    const ScreenName jamesHome = jamesPvt ? ScreenName::JamesLab : ScreenName::JamesOS;    // where BACK goes from his pages
+    const ScreenName jamesSys  = jamesPvt ? ScreenName::JamesLab : ScreenName::JamesConf;  // ...and from the system pages
 
     auto exists = [](const std::string& f) { return Util::FileUtils::FileExists(f); };
     auto makeDir = []() { mkdir(kJamesDir.c_str(), 0777); };
@@ -549,7 +564,14 @@ void FaceInfoScreenManager::Init(Anim::AnimContext* context, Anim::AnimationStre
       const int upMin = (int)(up / 60.0);
       snprintf(buf, sizeof(buf), "ON %dH%02dM  PETS %d", upMin / 60, upMin % 60, (int)ProceduralFaceDrawer::JamesPetsToday());
       const std::string upLine = buf;
-      drawList(ScreenName::JamesStatus, { {battLine, battLow ? 2 : 1}, {chargeLine, 0}, {upLine, 0} });
+      std::vector<std::pair<std::string, int>> lines = { {battLine, battLow ? 2 : 1}, {chargeLine, 0}, {upLine, 0} };
+      if (ProceduralFaceDrawer::JamesPvtEdition()) {   // v30: James counts how many times he started
+        std::ifstream bf("/data/data/jamesos/boots");
+        int boots = 0;
+        if (bf.is_open()) { bf >> boots; }
+        lines.push_back({"STARTS " + std::to_string(boots), 3});
+      }
+      drawList(ScreenName::JamesStatus, lines);
     };
 
     SET_ENTER_ACTION(JamesOS,     drawCool);
@@ -768,7 +790,7 @@ void FaceInfoScreenManager::Init(Anim::AnimContext* context, Anim::AnimationStre
       drawList(ScreenName::JamesFamily, info);
     };
     SET_ENTER_ACTION(JamesFamily, drawFamily);
-    ADD_MENU_ITEM(JamesFamily, "BACK", JamesOS);
+    GetScreen(ScreenName::JamesFamily)->AppendMenuItem("BACK", jamesHome);
 
     // older pages (not used any more, kept so nothing points to a missing screen)
     ADD_MENU_ITEM(JamesStars,   "BACK", JamesOS);
@@ -797,7 +819,7 @@ void FaceInfoScreenManager::Init(Anim::AnimContext* context, Anim::AnimationStre
         return ScreenName::Rebooting;
       });
     };
-    ADD_MENU_ITEM(JamesLights, "BACK", JamesConf);
+    GetScreen(ScreenName::JamesLights)->AppendMenuItem("BACK", jamesPvt ? ScreenName::JamesMode : ScreenName::JamesConf);
     ADD_MENU_ITEM_WITH_ACTION(JamesLights, "CUSTOM", setLights(true));
     ADD_MENU_ITEM_WITH_ACTION(JamesLights, "NORMAL", setLights(false));
     // v25: the original Anki back lights (WireOS's own switch: /data/data/enableankilights)
@@ -818,7 +840,7 @@ void FaceInfoScreenManager::Init(Anim::AnimContext* context, Anim::AnimationStre
       drawStatus();
       return ScreenName::JamesStatus;
     };
-    ADD_MENU_ITEM(JamesStatus, "BACK", JamesOS);
+    GetScreen(ScreenName::JamesStatus)->AppendMenuItem("BACK", jamesHome);
     ADD_MENU_ITEM_WITH_ACTION(JamesStatus, "REFRESH", refreshStatus);
 
     // ---- BADGES: every badge with a box (filled = unlocked); pick one to see how to get it ----
@@ -835,7 +857,7 @@ void FaceInfoScreenManager::Init(Anim::AnimContext* context, Anim::AnimationStre
     };
     auto enterBadges = [drawBadges, badgeSummary]() { drawBadges(badgeSummary()); };
     SET_ENTER_ACTION(JamesBadges, enterBadges);
-    ADD_MENU_ITEM(JamesBadges, "BACK", JamesOS);
+    GetScreen(ScreenName::JamesBadges)->AppendMenuItem("BACK", jamesHome);
     for (s32 i = 0; i < ProceduralFaceDrawer::JamesBadgeCount(); ++i) {
       FaceInfoScreen::MenuItemAction showBadge = [drawBadges, i]() {
         const s32 d = ProceduralFaceDrawer::JamesBadgeDate(i);
@@ -897,6 +919,27 @@ void FaceInfoScreenManager::Init(Anim::AnimContext* context, Anim::AnimationStre
     SET_ENTER_ACTION(JamesProof, drawProof);
     ADD_MENU_ITEM(JamesProof, "BACK", JamesBadges);
 
+    // ---- PHONE PAGE (v29): the address to open on a phone - it changes with every Wi-Fi ----
+    auto drawPhone = [drawList, upper]() {
+      auto os = OSState::getInstance();
+      const std::string ip = os->GetIPAddress(true);   // fresh: he may have just changed Wi-Fi
+      std::string ssid = upper(os->GetSSID(true));
+      if (ssid.size() > 16) { ssid = ssid.substr(0, 15) + "."; }
+      if (ip.empty() || !os->IsValidIPAddress(ip)) {
+        drawList(ScreenName::JamesPhone, { {"NO WI-FI RIGHT NOW", 2}, {"CONNECT HIM FIRST", 3} });
+        return;
+      }
+      drawList(ScreenName::JamesPhone, { {ip + ":8889", 1}, {"/JAMESOS", 1},
+                                         {"PHONE ON " + (ssid.empty() ? std::string("HIS WI-FI") : ssid), 3} });
+    };
+    SET_ENTER_ACTION(JamesPhone, drawPhone);
+    FaceInfoScreen::MenuItemAction refreshPhone = [drawPhone]() {
+      drawPhone();
+      return ScreenName::JamesPhone;
+    };
+    GetScreen(ScreenName::JamesPhone)->AppendMenuItem("BACK", jamesSys);
+    ADD_MENU_ITEM_WITH_ACTION(JamesPhone, "REFRESH", refreshPhone);
+
     // ---- CONFIGURATION: system things (moved here so the main screen stays simple) ----
     ADD_MENU_ITEM(JamesConf, "EXIT", Main);
 #if ENABLE_SELF_TEST
@@ -904,6 +947,7 @@ void FaceInfoScreenManager::Init(Anim::AnimContext* context, Anim::AnimationStre
 #endif
     ADD_MENU_ITEM(JamesConf, "RESTART", JamesRestart);
     ADD_MENU_ITEM(JamesConf, "BACKPACK LIGHTS", JamesLights);
+    ADD_MENU_ITEM(JamesConf, "PHONE PAGE", JamesPhone);   // v29
     FaceInfoScreen::MenuItemAction openData = [this]() {
       // the network / sensor / motor / mic pages: press the back button for the next page
       _debugInfoScreensUnlocked = true;
@@ -941,7 +985,7 @@ void FaceInfoScreenManager::Init(Anim::AnimContext* context, Anim::AnimationStre
         drawNews(news.empty() ? std::string("NOTHING LISTED") : std::string("PICK ONE TO READ MORE"));
       };
       SET_ENTER_ACTION(JamesNews, enterNews);
-      ADD_MENU_ITEM(JamesNews, "BACK", JamesConf);
+      GetScreen(ScreenName::JamesNews)->AppendMenuItem("BACK", jamesSys);
       for (size_t i = 0; i < news.size(); ++i) {
         FaceInfoScreen::MenuItemAction readOne = [drawNews, i]() {
           drawNews(news[i].second);
@@ -959,7 +1003,7 @@ void FaceInfoScreenManager::Init(Anim::AnimContext* context, Anim::AnimationStre
       this->Reboot();
       return ScreenName::Rebooting;
     };
-    ADD_MENU_ITEM(JamesRestart, "BACK", JamesConf);
+    GetScreen(ScreenName::JamesRestart)->AppendMenuItem("BACK", jamesSys);
     ADD_MENU_ITEM_WITH_ACTION(JamesRestart, "CONFIRM", confirmRestart);
     auto drawRestart = [drawList]() { drawList(ScreenName::JamesRestart, { {"RESTART VECTOR?", 0}, {"TAKES ABOUT A MINUTE", 3} }); };
     SET_ENTER_ACTION(JamesRestart, drawRestart);
@@ -990,7 +1034,7 @@ void FaceInfoScreenManager::Init(Anim::AnimContext* context, Anim::AnimationStre
       } else {
         build = "NOT PUBLISHED";
       }
-      std::string name = "JAMESOS " + (label.empty() ? std::string("V28") : label);
+      std::string name = "JAMESOS " + (label.empty() ? std::string("V29") : label);
       for (auto& ch : name) { if (ch >= 'a' && ch <= 'z') { ch = (char)(ch - 'a' + 'A'); } }
       const bool proto = ProceduralFaceDrawer::JamesIsPrototype();   // v23: James's PVT
       std::pair<std::string, int> last = proto ? std::pair<std::string, int>{"PVT PROTOTYPE", 4}
@@ -1008,12 +1052,12 @@ void FaceInfoScreenManager::Init(Anim::AnimContext* context, Anim::AnimationStre
                                          last });
     };
     SET_ENTER_ACTION(JamesAbout, drawAbout);
-    FaceInfoScreen::MenuItemAction leaveAbout = []() {
+    FaceInfoScreen::MenuItemAction leaveAbout = [jamesSys]() {
       if (secretOpen) {
         secretOpen = false;
         return ScreenName::JamesSecret;
       }
-      return ScreenName::JamesConf;
+      return jamesSys;
     };
     ADD_MENU_ITEM_WITH_ACTION(JamesAbout, "BACK", leaveAbout);
 
@@ -1038,6 +1082,10 @@ void FaceInfoScreenManager::Init(Anim::AnimContext* context, Anim::AnimationStre
     ADD_MENU_ITEM_WITH_ACTION(JamesSecret, "GLITCH",      setSecretTheme("glitch"));
     ADD_MENU_ITEM_WITH_ACTION(JamesSecret, "RETRO GREEN", setSecretTheme("retro"));
     ADD_MENU_ITEM_WITH_ACTION(JamesSecret, "GALAXY MAX",  setSecretTheme("galaxymax"));
+
+#ifndef JAMESOS_PRIVATE
+#define JAMESOS_PRIVATE 1
+#endif
   }
   // <<< JamesOS MODS menu (end)
 

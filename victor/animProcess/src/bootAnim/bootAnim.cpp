@@ -143,6 +143,16 @@ static void save_boot_date()
 // rampost-init.sh for the very first screen). Prints nothing if there is no date or no file.
 static int print_splash_path()
 {
+  // JamesOS v29: the robot's own startup picture (/persist/jamesos/splash.raw, 184x96 RGB565) always
+  // wins - it lives outside the system drive, so it stays after updates
+  {
+    static const char* kOwnSplash = "/persist/jamesos/splash.raw";
+    struct stat st;
+    if (stat(kOwnSplash, &st) == 0 && st.st_size == 184 * 96 * 2) {
+      printf("%s\n", kOwnSplash);
+      return 0;
+    }
+  }
   if (jamesos::FileExists(jamesos::kDisableFile)) {
     return 1;
   }

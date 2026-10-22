@@ -55,6 +55,9 @@
 #   ./jamesos.sh ota           build a JamesOS OTA with the WireOS builder in ~/wire-os (about 20-60 min)
 #                              uses the JamesOS code saved in git (commit first). Private extras are always OFF.
 #   ./jamesos.sh ota-install 2.0   install the newest OTA on a robot (by name or IP) - never on the PVT
+#   ./jamesos.sh own-splash NAME|off      his own startup picture, kept after updates (v29)
+#   ./jamesos.sh holiday-boot on|off      holiday boot themes on this robot (off = his own boot animation)
+#   ./jamesos.sh updates-lock on|off      lock OS updates on this robot (stays locked after updates)
 #   ./jamesos.sh setup-site    JamesOS Setup website on this laptop (like websetup.skittle.dev, but it
 #                              installs your newest JamesOS OTA). Open http://localhost:8000 in Chrome.
 #   ./jamesos.sh setup-site online LINK   put JamesOS Setup online (GitHub Pages, repo in ~/jamesos-site),
@@ -78,7 +81,7 @@ set -e
 cd "$(dirname "$0")"
 
 # the JamesOS version name (shown on Vector's info screen as "OS: JamesOS v21")
-JAMESOS_RELEASE="v28"
+JAMESOS_RELEASE="v29"
 
 if [[ "$1" == "use" ]]; then
   # ./jamesos.sh use 1.0   (a name from ./jamesos.sh find)   or   ./jamesos.sh use 192.168.0.116
@@ -1197,6 +1200,45 @@ RECIPE
     echo
     echo "Leave this window open while you use it. Press Ctrl+C to stop it."
     wait $SPID
+    ;;
+
+  own-splash|holiday-boot|updates-lock)
+    # v29: settings that live in /persist, so OS updates keep them (jamesos-keep.sh puts the
+    # startup copy / the lock back after an update by itself)
+    KS=/anki/data/assets/cozmo_resources/config/jamesos/jamesos-keep.sh
+    PRW='MP=$(df /persist 2>/dev/null | tail -1 | awk "{print \$NF}"); [ -z "$MP" ] && MP=/; WASRO=0; awk -v m="$MP" "\$2==m && \$4 ~ /^ro/ {f=1} END {exit !f}" /proc/mounts && WASRO=1 && mount -o remount,rw "$MP"; mkdir -p /persist/jamesos;'
+    PRO='sync; [ "$WASRO" = 1 ] && mount -o remount,ro "$MP"; true'
+    case "$1 $2" in
+      "own-splash off")
+        $SSH "$PRW rm -f /persist/jamesos/splash.raw; $PRO; sh $KS startup"
+        echo "Own startup picture removed (the normal one comes back on the next start)" ;;
+      "own-splash "?*)
+        PIC="jamesos-features/splash/splash_$2.raw"
+        if [[ "$2" == pvt_* && ! -f jamesos/private.on ]]; then echo "The PVT pictures are a private extra: ./jamesos.sh private on"; exit 1; fi
+        [[ -f "$PIC" && $(stat -c %s "$PIC") == 35328 ]] || { echo "No picture $PIC (184x96)"; exit 1; }
+        $SSH "cat > /data/splash.new" < "$PIC"
+        $SSH "$PRW cp /data/splash.new /persist/jamesos/splash.raw.tmp && mv /persist/jamesos/splash.raw.tmp /persist/jamesos/splash.raw; rm -f /data/splash.new; $PRO; sh $KS startup"
+        echo "Own startup picture: $2 (stays after updates). You'll see it on the next start." ;;
+      "holiday-boot off")
+        $SSH "$PRW touch /persist/jamesos/seasonal_off; $PRO; sh $KS startup"
+        echo "Holiday boot themes OFF on this robot - his own boot animation every day" ;;
+      "holiday-boot on")
+        $SSH "$PRW rm -f /persist/jamesos/seasonal_off; $PRO; sh $KS startup"
+        echo "Holiday boot themes ON" ;;
+      "updates-lock on")
+        $SSH "$PRW touch /persist/jamesos/updates_locked; $PRO; sh $KS lock; systemctl is-enabled update-engine"
+        echo "Updates LOCKED on this robot (stays locked after updates)" ;;
+      "updates-lock off")
+        $SSH "$PRW rm -f /persist/jamesos/updates_locked; $PRO
+              if [ \"\$(readlink /etc/systemd/system/update-engine.service)\" = /dev/null ]; then
+                W=0; awk '\$2==\"/\" && \$4 ~ /^ro/ {f=1} END {exit !f}' /proc/mounts && W=1 && mount -o remount,rw /
+                rm -f /etc/systemd/system/update-engine.service; sync; [ \"\$W\" = 1 ] && mount -o remount,ro /
+                systemctl daemon-reload
+              fi; systemctl is-enabled update-engine"
+        echo "Updates UNLOCKED - turn it back on after the update: ./jamesos.sh updates-lock on" ;;
+      *) echo "Usage: ./jamesos.sh own-splash NAME|off    ./jamesos.sh holiday-boot on|off    ./jamesos.sh updates-lock on|off"; exit 1 ;;
+    esac
+    done_msg
     ;;
 
   splash)

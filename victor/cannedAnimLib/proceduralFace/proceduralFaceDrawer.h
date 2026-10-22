@@ -80,6 +80,7 @@ namespace Vector {
     static s32  JamesPetsToday();
     // JamesOS badges (achievements), for the BADGES menu
     static s32  JamesBadgeCount();
+    static bool JamesPvtEdition(); // JamesOS v30 private: MODE / LAB menus on the prototype
     static void JamesNoteStream(bool showingEyes, bool redrew); // JamesOS v29 debug
     static bool JamesWantsFrames(); // JamesOS v29: keep redrawing while the sleep screen can show
     static std::string JamesCreator();        // JamesOS: credit line on the About page

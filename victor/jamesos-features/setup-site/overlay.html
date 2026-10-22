@@ -10,7 +10,11 @@
       <div class="jos-hero-main">
         <h1 id="jamesWelcomeTitle">Install JamesOS on your Vector</h1>
         <p class="jos-lead">Custom firmware built on WireOS. It takes about 10 minutes, and he restarts by himself when it's done.</p>
-        <button type="button" id="jamesStart" class="jos-primary">Start</button>
+        <div class="jos-actions">
+          <button type="button" id="jamesStart" class="jos-primary">Start</button>
+          <button type="button" id="jamesWifiOnly" class="jos-secondary">Just change his Wi-Fi</button>
+        </div>
+        <p class="jos-small">Already on JamesOS? <b>Just change his Wi-Fi</b> connects him to a new network and skips the install.</p>
         <p class="jos-small">Free software under the GPL-3.0. <a href="https://github.com/jamesos-project/jamesos" target="_blank" rel="noopener">Source code</a></p>
       </div>
       <div class="jos-check">
@@ -29,6 +33,15 @@
       <li><b>Sparkles</b><span>Galaxy eyes, stars and rare surprise days.</span></li>
       <li><b>Phone page</b><span>Change his settings from your phone.</span></li>
     </ul>
+  </div>
+</div>
+<div id="jamesWifiDone" class="jos-overlay jos-hidden" role="dialog" aria-labelledby="jamesWifiDoneTitle">
+  <div class="jos-card">
+    <div class="jos-top"><span class="jos-word">JamesOS</span></div>
+    <h1 id="jamesWifiDoneTitle">Wi-Fi changed</h1>
+    <p class="jos-lead" id="jamesWifiDoneText">He's on the new Wi-Fi. Nothing else was changed.</p>
+    <p class="jos-lead">For voice commands, wire-pod has to be on the same Wi-Fi as him.</p>
+    <button type="button" class="jos-primary" id="jamesWifiDoneBtn">Done</button>
   </div>
 </div>
 <div id="jamesCredits" class="jos-overlay jos-hidden" role="dialog" aria-labelledby="jamesCreditsTitle">
@@ -56,7 +69,14 @@
 <script>
 (function () {
   function $(id) { return document.getElementById(id); }
-  $("jamesStart").addEventListener("click", function () { $("jamesWelcome").classList.add("jos-hidden"); });
+  $("jamesStart").addEventListener("click", function () { window.JAMESOS_WIFI_ONLY = false; $("jamesWelcome").classList.add("jos-hidden"); });
+  // Just change his Wi-Fi: pair, pick a network, done (no install)
+  $("jamesWifiOnly").addEventListener("click", function () { window.JAMESOS_WIFI_ONLY = true; $("jamesWelcome").classList.add("jos-hidden"); });
+  window.jamesWifiDone = function (ssid) {
+    $("jamesWifiDoneText").textContent = ssid ? "He's on " + ssid + " now. Nothing else was changed." : "He's on the new Wi-Fi. Nothing else was changed.";
+    $("jamesWifiDone").classList.remove("jos-hidden");
+  };
+  $("jamesWifiDoneBtn").addEventListener("click", function () { location.reload(); });
   document.addEventListener("click", function (e) {
     var t = e.target.closest ? e.target.closest("[data-open],[data-close]") : e.target;
     if (!t || !t.getAttribute) { return; }
