@@ -1,44 +1,56 @@
 <!-- JamesOS: welcome + credits screens -->
 <div id="jamesWelcome" class="jos-overlay" role="dialog" aria-labelledby="jamesWelcomeTitle">
-  <div class="jos-card">
-    <img src="/static/images/jamesos-logo.svg" class="jos-logo" alt="" />
-    <h1 id="jamesWelcomeTitle">JamesOS</h1>
-    <p class="jos-lead">Custom firmware for Anki Vector. Built on WireOS.</p>
-    <ul class="jos-list">
-      <li><b>Holiday themes</b> eyes, hats and back lights change with the holidays by themselves</li>
-      <li><b>Badges</b> he unlocks achievements as you pet him and play</li>
-      <li><b>Sparkles and galaxy eyes</b> little touches that make him feel alive</li>
-      <li><b>Rare surprises</b> some days are special. Watch him.</li>
-    </ul>
-    <p class="jos-need-title">Before you start</p>
-    <ul class="jos-need">
-      <li>Vector must be <b>unlocked</b> (already running WireOS or another custom firmware).</li>
-      <li>Use <b>Google Chrome</b> on a computer with Bluetooth.</li>
-      <li>Vector on his <b>charger</b>, and this computer on the <b>same Wi-Fi</b> you'll give him.</li>
-    </ul>
-    <div class="jos-actions">
-      <button type="button" id="jamesStart" class="vec-btn">Start</button>
+  <div class="jos-card jos-wide">
+    <div class="jos-top">
+      <span class="jos-word">JamesOS</span>
       <button type="button" class="jos-link" data-open="jamesCredits">Credits</button>
-      <a class="jos-link" href="https://github.com/jamesos-project/jamesos" target="_blank" rel="noopener">Source code</a>
     </div>
+
+    <div class="jos-hero">
+      <div class="jos-hero-main">
+        <h1 id="jamesWelcomeTitle">Install JamesOS on your Vector</h1>
+        <p class="jos-lead">Custom firmware built on WireOS. It takes about 10 minutes, and he restarts by himself when it's done.</p>
+        <button type="button" id="jamesStart" class="jos-primary">Start</button>
+        <p class="jos-small">Free software under the GPL-3.0. <a href="https://github.com/jamesos-project/jamesos" target="_blank" rel="noopener">Source code</a></p>
+      </div>
+      <div class="jos-check">
+        <p class="jos-check-title">What you need</p>
+        <ul>
+          <li><span class="jos-tick" aria-hidden="true"></span><span>A Vector that's <b>already unlocked</b>, running WireOS or another custom firmware</span></li>
+          <li><span class="jos-tick" aria-hidden="true"></span><span><b>Google Chrome</b> on a computer with Bluetooth</span></li>
+          <li><span class="jos-tick" aria-hidden="true"></span><span>Vector on his <b>charger</b>, and this computer on the <b>Wi-Fi</b> you'll give him</span></li>
+        </ul>
+      </div>
+    </div>
+
+    <ul class="jos-features" aria-label="What JamesOS adds">
+      <li><b>Holiday themes</b><span>His eyes and back lights change with the holidays.</span></li>
+      <li><b>Badges</b><span>He unlocks achievements as you pet and play with him.</span></li>
+      <li><b>Sparkles</b><span>Galaxy eyes, stars and rare surprise days.</span></li>
+      <li><b>Phone page</b><span>Change his settings from your phone.</span></li>
+    </ul>
   </div>
 </div>
 <div id="jamesCredits" class="jos-overlay jos-hidden" role="dialog" aria-labelledby="jamesCreditsTitle">
   <div class="jos-card">
+    <div class="jos-top">
+      <span class="jos-word">JamesOS</span>
+      <button type="button" class="jos-link" data-close="jamesCredits">Close</button>
+    </div>
     <h1 id="jamesCreditsTitle">Credits</h1>
     <p class="jos-lead">Thank you to everyone who made JamesOS possible.</p>
     <dl class="jos-credits">
-      <dt>Anki</dt><dd>Created Vector (2018).</dd>
-      <dt>Digital Dream Labs</dt><dd>Kept Vector alive after Anki. This installer is based on their open source Vector Web Setup (MIT License).</dd>
-      <dt>WireOS</dt><dd>The custom firmware JamesOS is built on, by Kerigan Creighton (Wire, kercre123) and the os-vector contributors (GPL-3.0).</dd>
-      <dt>wire-pod</dt><dd>The voice server that lets Vector hear you without Anki's cloud, by kercre123.</dd>
-      <dt>Vector Web Setup sites</dt><dd>websetup.skittle.dev by Froggitti and kercre123 showed how easy installing could be.</dd>
-      <dt>The Vector community</dt><dd>Everyone who kept docs, tools and help going, including <a href="https://os-vector.github.io/vector-docs" target="_blank">vector-docs</a>.</dd>
-      <dt>Icons</dt><dd><a href="https://fontawesome.com/license/free" target="_blank">Font Awesome Free</a> icons, used under the Creative Commons CC BY 4.0 license.</dd>
-      <dt>Licenses</dt><dd>Vector Web Setup: © 2019-2020 Digital Dream Labs, MIT License. WireOS: GPL-3.0. Vector, Anki and Digital Dream Labs are trademarks of their owners.</dd>
-      <dt>Source code</dt><dd>JamesOS is free software under the GPL-3.0, like WireOS. The source code for every JamesOS release is at <a href="https://github.com/jamesos-project/jamesos" target="_blank">github.com/jamesos-project/jamesos</a>.</dd>
+      <div><dt>Anki</dt><dd>Created Vector (2018).</dd></div>
+      <div><dt>Digital Dream Labs</dt><dd>Kept Vector alive after Anki. This installer is based on their open source Vector Web Setup (MIT License).</dd></div>
+      <div><dt>WireOS</dt><dd>The custom firmware JamesOS is built on, by Kerigan Creighton (Wire, kercre123) and the os-vector contributors (GPL-3.0).</dd></div>
+      <div><dt>wire-pod</dt><dd>The voice server that lets Vector hear you without Anki's cloud, by kercre123.</dd></div>
+      <div><dt>Vector Web Setup sites</dt><dd>websetup.skittle.dev by Froggitti and kercre123 showed how easy installing could be.</dd></div>
+      <div><dt>The Vector community</dt><dd>Everyone who kept docs, tools and help going, including <a href="https://os-vector.github.io/vector-docs" target="_blank" rel="noopener">vector-docs</a>.</dd></div>
+      <div><dt>Icons</dt><dd><a href="https://fontawesome.com/license/free" target="_blank" rel="noopener">Font Awesome Free</a> icons, used under the Creative Commons CC BY 4.0 license.</dd></div>
+      <div><dt>Licenses</dt><dd>Vector Web Setup: © 2019-2020 Digital Dream Labs, MIT License. WireOS: GPL-3.0. Vector, Anki and Digital Dream Labs are trademarks of their owners.</dd></div>
+      <div><dt>Source code</dt><dd>JamesOS is free software under the GPL-3.0, like WireOS. The source code for every JamesOS release is at <a href="https://github.com/jamesos-project/jamesos" target="_blank" rel="noopener">github.com/jamesos-project/jamesos</a>.</dd></div>
     </dl>
-    <div class="jos-actions"><button type="button" class="vec-btn" data-close="jamesCredits">Back</button></div>
+    <button type="button" class="jos-secondary" data-close="jamesCredits">Back</button>
   </div>
 </div>
 <script>
@@ -46,10 +58,11 @@
   function $(id) { return document.getElementById(id); }
   $("jamesStart").addEventListener("click", function () { $("jamesWelcome").classList.add("jos-hidden"); });
   document.addEventListener("click", function (e) {
-    var o = e.target.getAttribute && e.target.getAttribute("data-open");
-    var c = e.target.getAttribute && e.target.getAttribute("data-close");
-    if (o) { $(o).classList.remove("jos-hidden"); }
-    if (c) { $(c).classList.add("jos-hidden"); }
+    var t = e.target.closest ? e.target.closest("[data-open],[data-close]") : e.target;
+    if (!t || !t.getAttribute) { return; }
+    var o = t.getAttribute("data-open"), c = t.getAttribute("data-close");
+    if (o) { e.preventDefault(); $(o).classList.remove("jos-hidden"); $(o).scrollTop = 0; }
+    if (c) { e.preventDefault(); $(c).classList.add("jos-hidden"); }
   });
   document.addEventListener("keydown", function (e) {
     if (e.key === "Escape") { $("jamesCredits").classList.add("jos-hidden"); }

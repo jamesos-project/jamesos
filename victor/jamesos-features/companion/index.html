@@ -3,250 +3,226 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#0E1110">
+<meta name="theme-color" content="#16181B">
+<meta name="apple-mobile-web-app-title" content="JamesOS">
 <title>JamesOS</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
 :root{
-  --bg:#0A0C0B; --surface:#131715; --surface2:#1A1F1C; --line:rgba(255,255,255,.07); --line2:rgba(255,255,255,.12);
-  --text:#F2F4F3; --muted:#98A29C; --dim:#6F7973; --accent:#4ADE80; --accent-ink:#052E16; --accent-soft:rgba(74,222,128,.12);
-  --bad:#F87171; --hol:#4ADE80;
+  --graphite:#16181B; --panel:#202327; --raised:#2A2E33; --edge:#30343A;
+  --text:#F3F1EC; --muted:#A3A49F; --faint:#74777A;
+  --gold:#F2B544; --gold-ink:#2B1A00; --gold-tint:rgba(242,181,68,.14);
+  --bad:#F28B82; --hol:#F2B544;
+  --r-lg:22px; --r-md:14px; --r-sm:10px;
 }
 *{box-sizing:border-box}
-html,body{margin:0;background:var(--bg);color:var(--text);
-  font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",sans-serif;-webkit-text-size-adjust:100%;
-  -webkit-font-smoothing:antialiased}
-button{font:inherit;color:inherit}
-button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-.app{max-width:520px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column;
-  padding-bottom:calc(84px + env(safe-area-inset-bottom))}
+html,body{margin:0;background:var(--graphite);color:var(--text);
+  font-family:Rubik,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;font-size:16px;line-height:1.4;
+  -webkit-text-size-adjust:100%;-webkit-font-smoothing:antialiased}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+.app{max-width:560px;margin:0 auto;padding:0 20px calc(40px + env(safe-area-inset-bottom))}
+[hidden]{display:none!important}
 
-/* header */
-.brand{display:flex;align-items:center;justify-content:space-between;padding:22px 20px 6px}
-.brand b{font-size:17px;font-weight:700;letter-spacing:-.01em}
-.brand b em{font-style:normal;color:var(--accent)}
-.net{display:flex;align-items:center;gap:7px;font-size:12px;font-weight:600;color:var(--muted)}
-.net i{width:8px;height:8px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
-.net.off{color:#FCA5A5}.net.off i{background:var(--bad);box-shadow:0 0 0 3px rgba(248,113,113,.15)}
+/* top bar */
+.top{display:flex;align-items:center;justify-content:space-between;height:64px}
+.word{font-weight:600;font-size:18px;letter-spacing:-.01em}
+.net{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--muted)}
+.net i{width:8px;height:8px;border-radius:50%;background:#7BD88F}
+.net.off{color:var(--bad)}.net.off i{background:var(--bad)}
+.net.wait i{background:var(--faint)}
 
-main{flex:1;padding:12px 20px 24px;display:flex;flex-direction:column;gap:14px}
-.label{font-size:12px;font-weight:600;color:var(--dim);letter-spacing:.06em;text-transform:uppercase;margin:10px 2px -4px}
+/* home: status */
+.status{padding:20px 0 28px}
+.status h1{margin:0;font-size:32px;line-height:1.15;font-weight:600;letter-spacing:-.02em;overflow-wrap:anywhere}
+.status .state{margin:6px 0 0;font-size:20px;color:var(--muted)}
+.status .state b{color:var(--text);font-weight:500}
+.meter{margin-top:18px;height:14px;border-radius:7px;background:var(--panel);overflow:hidden;position:relative}
+.meter i{position:absolute;inset:0 auto 0 0;width:0;border-radius:7px;background:var(--gold);transition:width .6s ease}
+.facts{display:flex;flex-wrap:wrap;gap:6px 18px;margin:14px 0 0;padding:0;list-style:none;font-size:14px;color:var(--muted)}
+.facts li{display:flex;align-items:center;gap:7px}
+.facts .hol i{width:9px;height:9px;border-radius:50%;background:var(--hol)}
 
-/* robot card */
-.hero{position:relative;overflow:hidden;border-radius:24px;padding:20px;background:var(--surface);border:1px solid var(--line);
-  display:flex;flex-direction:column;gap:16px}
-.hero::before{content:"";position:absolute;right:-60px;top:-80px;width:220px;height:220px;border-radius:50%;
-  background:radial-gradient(closest-side,var(--hol),transparent);opacity:.12;filter:blur(8px);transition:background .4s}
-.hero > *{position:relative}
-.hero .name{font-size:26px;font-weight:700;letter-spacing:-.02em;line-height:1.1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.hero .sub{font-size:14px;color:var(--muted);margin-top:4px}
-.chips{display:flex;flex-wrap:wrap;gap:8px}
-.chip{display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:600;padding:7px 12px;border-radius:999px;
-  background:rgba(255,255,255,.05);border:1px solid var(--line)}
-.chip i{width:8px;height:8px;border-radius:50%;background:var(--hol)}
-.batt{display:flex;flex-direction:column;gap:8px}
-.batt .top{display:flex;justify-content:space-between;align-items:baseline;font-size:13px;color:var(--muted)}
-.batt .top b{font-size:15px;color:var(--text);font-weight:700}
-.bar{height:8px;border-radius:999px;background:rgba(255,255,255,.08);overflow:hidden}
-.bar i{display:block;height:100%;width:0;border-radius:999px;background:var(--hol);transition:width .6s ease,background .4s}
-
-/* tiles */
-.tiles{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.tile{display:flex;flex-direction:column;align-items:flex-start;gap:14px;min-height:124px;padding:16px;border-radius:20px;
-  background:var(--surface);border:1px solid var(--line);cursor:pointer;text-align:left;transition:background .15s,transform .1s}
-.tile:hover{background:var(--surface2)}
-.tile:active{transform:scale(.98)}
-.tile .ic{width:40px;height:40px;border-radius:12px;background:var(--accent-soft);color:var(--accent);display:flex;align-items:center;justify-content:center}
-.tile .tt b{display:block;font-size:16px;font-weight:700}
-.tile .tt small{display:block;font-size:13px;color:var(--muted);margin-top:3px}
-.soonlist{border-radius:20px;background:var(--surface);border:1px solid var(--line);overflow:hidden}
-.soonrow{display:flex;align-items:center;gap:14px;padding:14px 16px;border-top:1px solid var(--line)}
-.soonrow:first-child{border-top:0}
-.soonrow .ic{width:34px;height:34px;border-radius:10px;background:rgba(255,255,255,.05);color:var(--dim);display:flex;align-items:center;justify-content:center;flex-shrink:0}
-.soonrow div{flex:1;min-width:0}
-.soonrow b{display:block;font-size:15px;font-weight:600;color:#C9D0CC}
-.soonrow span{display:block;font-size:12px;color:var(--dim);margin-top:2px}
-.tag{font-size:11px;font-weight:700;color:var(--muted);background:rgba(255,255,255,.06);border-radius:999px;padding:4px 9px;letter-spacing:.02em}
+/* lists (settings-app style) */
+.group-title{margin:28px 4px 10px;font-size:15px;font-weight:500;color:var(--muted)}
+.list{margin:0;padding:0;list-style:none;background:var(--panel);border-radius:var(--r-lg);overflow:hidden}
+.list li + li{border-top:1px solid var(--edge)}
+.item{display:flex;align-items:center;gap:14px;width:100%;min-height:64px;padding:12px 16px;border:0;background:none;text-align:left}
+button.item:hover{background:var(--raised)}
+.item .ic{width:36px;height:36px;border-radius:var(--r-sm);background:var(--gold-tint);color:var(--gold);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.item .tx{flex:1;min-width:0}
+.item .tx b{display:block;font-weight:500;font-size:16px}
+.item .tx small{display:block;font-size:14px;color:var(--muted);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.item .chev{color:var(--faint);flex-shrink:0}
+.list.later .ic{background:var(--raised);color:var(--faint)}
+.list.later .tx b{color:#CFCDC7}
+.soon{font-size:13px;color:var(--faint)}
 
 /* sub pages */
-h1{margin:0;font-size:26px;font-weight:700;letter-spacing:-.02em}
-.head{display:flex;align-items:center;gap:6px;margin-left:-8px}
-.back{width:40px;height:40px;border-radius:50%;border:0;background:transparent;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text)}
-.back:hover{background:var(--surface)}
-.note{margin:-4px 0 0;font-size:14px;color:var(--muted);line-height:1.45}
-.row{background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:16px;display:flex;flex-direction:column;gap:12px}
-.row .top{display:flex;flex-direction:column;gap:2px}
-.row .top b{font-size:16px;font-weight:700}
-.row .top span{font-size:13px;color:var(--muted)}
-.opts{display:flex;flex-wrap:wrap;gap:8px}
-.opt{min-height:40px;padding:0 16px;border-radius:999px;border:1px solid var(--line2);background:transparent;color:#D5DBD8;font-size:14px;font-weight:600;cursor:pointer;transition:background .15s,border-color .15s}
-.opt:hover{border-color:rgba(255,255,255,.25)}
-.opt[aria-pressed=true]{border-color:var(--accent);background:var(--accent);color:var(--accent-ink)}
-.opt:disabled{opacity:.5;cursor:default}
-.opt.busy{opacity:.7}
+.head{display:flex;align-items:center;gap:4px;height:64px;margin-left:-10px}
+.back{width:44px;height:44px;border-radius:50%;border:0;background:none;display:flex;align-items:center;justify-content:center}
+.back:hover{background:var(--panel)}
+.head span{font-size:16px;color:var(--muted)}
+.page-title{margin:4px 0 6px;font-size:30px;font-weight:600;letter-spacing:-.02em}
+.intro{margin:0 0 8px;color:var(--muted);font-size:15px;max-width:42ch}
 
-/* bottom bar */
-nav{position:fixed;left:0;right:0;bottom:0;background:rgba(10,12,11,.86);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);
-  border-top:1px solid var(--line);padding:8px 8px calc(10px + env(safe-area-inset-bottom));z-index:3}
-nav .in{max-width:520px;margin:0 auto;display:grid;grid-template-columns:repeat(4,1fr)}
-nav button{background:none;border:0;color:var(--dim);display:flex;flex-direction:column;align-items:center;gap:4px;padding:6px 0;font-size:11px;font-weight:600;cursor:pointer}
-nav button svg{padding:4px 16px;box-sizing:content-box;border-radius:999px;transition:background .15s}
-nav button[aria-current=page]{color:var(--text)}
-nav button[aria-current=page] svg{background:var(--accent-soft);color:var(--accent)}
-
-/* toast + sheet + offline */
-.toast{position:fixed;left:50%;bottom:calc(92px + env(safe-area-inset-bottom));transform:translateX(-50%) translateY(8px);background:#222925;
-  color:var(--text);padding:11px 18px;border-radius:999px;font-size:14px;font-weight:600;max-width:90vw;opacity:0;pointer-events:none;
-  transition:opacity .2s,transform .2s;box-shadow:0 8px 30px rgba(0,0,0,.4);z-index:6}
-.toast.show{opacity:1;transform:translateX(-50%)}
-.sheet{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:flex-end;justify-content:center;z-index:5}
-.sheet.show{display:flex}
-.sheet .box{background:var(--surface);border:1px solid var(--line);border-radius:24px 24px 0 0;padding:24px 20px calc(20px + env(safe-area-inset-bottom));
-  width:100%;max-width:520px;display:flex;flex-direction:column;gap:12px}
-.sheet .box b{font-size:19px}
-.sheet .box p{margin:0;color:var(--muted);font-size:14px;line-height:1.45}
-.sheet .btns{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:6px}
-.sheet .btns button{min-height:48px;border-radius:999px;border:1px solid var(--line2);background:transparent;font-weight:700;cursor:pointer}
-.sheet .btns .go{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
-.offline{background:rgba(248,113,113,.1);border:1px solid rgba(248,113,113,.3);color:#FCA5A5;border-radius:16px;padding:12px 14px;font-size:13px;display:none}
-.offline.show{display:block}
+/* customize */
+.setting{padding:16px;border-top:1px solid var(--edge)}
+.setting:first-child{border-top:0}
+.setting .lbl{display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin-bottom:12px}
+.setting .lbl b{font-weight:500}
+.setting .lbl small{color:var(--muted);font-size:13px;text-align:right}
+.seg{display:flex;background:var(--graphite);border-radius:12px;padding:3px;gap:3px}
+.seg button{flex:1;min-height:40px;border:0;border-radius:9px;background:none;color:#D9D6CF;font-size:14px;font-weight:500;padding:0 6px}
+.seg button:hover{background:var(--raised)}
+.seg button[aria-pressed=true]{background:var(--gold);color:var(--gold-ink)}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chips button{min-height:40px;padding:0 15px;border-radius:20px;border:1px solid var(--edge);background:none;color:#D9D6CF;font-size:14px;font-weight:500}
+.chips button:hover{background:var(--raised)}
+.chips button[aria-pressed=true]{background:var(--gold);border-color:var(--gold);color:var(--gold-ink)}
+.seg button:disabled,.chips button:disabled{opacity:.45;cursor:default}
 
 /* badges */
-.prog{height:8px;border-radius:999px;background:rgba(255,255,255,.08);overflow:hidden}
-.prog i{display:block;height:8px;border-radius:999px;background:var(--accent);width:0;transition:width .5s}
-.sumrow{display:flex;align-items:baseline;justify-content:space-between}
-.sumrow b{font-size:16px}.sumrow span{font-size:13px;color:var(--muted)}
-.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.badge{border-radius:20px;padding:14px;display:flex;flex-direction:column;gap:6px;background:var(--surface);border:1px solid var(--line)}
-.badge:not(.got){opacity:.6}
-.badge .dot{width:34px;height:34px;border-radius:50%;border:1.5px dashed rgba(255,255,255,.2);color:var(--dim);display:flex;align-items:center;justify-content:center;font-weight:800;margin-bottom:4px}
-.badge.got .dot{border:0;background:var(--accent-soft);color:var(--accent)}
-.badge b{font-size:14px}.badge span{font-size:12px;color:var(--muted);line-height:1.35}
-.badge .when{color:var(--accent);font-weight:600}
+.progress{display:flex;align-items:center;gap:14px;margin:14px 0 4px}
+.progress .meter{flex:1;margin:0;height:10px}
+.progress b{font-weight:500;white-space:nowrap}
+.blist .item{min-height:68px}
+.blist .ic{border-radius:50%}
+.blist li.locked .ic{background:var(--raised);color:var(--faint)}
+.blist li.locked .tx b{color:#BDBAB3}
+.blist .when{font-size:13px;color:var(--gold);white-space:nowrap}
 
-/* what's new + utility */
-.news{background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:18px;display:flex;flex-direction:column;gap:14px}
-.news .vh{display:flex;align-items:center;justify-content:space-between}
-.news .vh b{font-size:20px;font-weight:700}
-.pill{font-size:12px;color:var(--accent);background:var(--accent-soft);border-radius:999px;padding:5px 10px;font-weight:700}
-.news ul{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:14px}
-.news li{display:flex;flex-direction:column;gap:3px;padding-left:16px;position:relative}
-.news li::before{content:"";position:absolute;left:0;top:7px;width:6px;height:6px;border-radius:50%;background:var(--accent)}
-.news li b{font-size:15px}.news li span{font-size:13px;color:var(--muted);line-height:1.4}
-.form{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.field{display:flex;flex-direction:column;gap:6px;font-size:12px;color:var(--muted);font-weight:600}
-.field select,.field input{min-height:48px;border-radius:14px;border:1px solid var(--line2);background:var(--bg);color:var(--text);font:inherit;font-size:16px;padding:0 14px;width:100%}
-.primary{min-height:50px;border-radius:999px;border:0;background:var(--accent);color:var(--accent-ink);font-size:16px;font-weight:700;cursor:pointer}
-.ghost{min-height:46px;border-radius:999px;border:1px solid var(--line2);background:transparent;color:#D5DBD8;font-weight:600;cursor:pointer}
-.empty{color:var(--muted);font-size:14px;text-align:center;padding:24px 0}
-[hidden]{display:none!important}
+/* what's new */
+.nlist .item{align-items:flex-start;min-height:0;padding:14px 16px}
+.nlist .tx small{white-space:normal}
+.vtag{font-size:13px;font-weight:500;color:var(--gold);background:var(--gold-tint);border-radius:8px;padding:3px 8px;margin-left:8px;vertical-align:5px}
+
+/* birthday */
+.form{background:var(--panel);border-radius:var(--r-lg);padding:16px;display:grid;gap:14px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.field{display:grid;gap:6px;font-size:14px;color:var(--muted)}
+.field select,.field input{height:48px;border-radius:var(--r-md);border:1px solid var(--edge);background:var(--graphite);color:var(--text);font-size:16px;padding:0 14px;width:100%}
+.field input::placeholder{color:var(--faint)}
+.btn{height:50px;border-radius:25px;border:0;background:var(--gold);color:var(--gold-ink);font-weight:600;font-size:16px}
+.btn:hover{filter:brightness(1.06)}
+.btn.quiet{background:none;border:1px solid var(--edge);color:var(--text);font-weight:500}
+
+/* feedback */
+.offline{margin:4px 0 0;padding:12px 14px;border-radius:var(--r-md);background:rgba(242,139,130,.1);color:var(--bad);font-size:14px;display:none}
+.offline.show{display:block}
+.toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom));transform:translate(-50%,10px);background:var(--text);color:var(--graphite);
+  padding:12px 18px;border-radius:24px;font-size:15px;font-weight:500;max-width:90vw;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:6}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+.sheet{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:flex-end;justify-content:center;z-index:5}
+.sheet.show{display:flex}
+.sheet .box{background:var(--panel);border-radius:24px 24px 0 0;padding:24px 20px calc(20px + env(safe-area-inset-bottom));width:100%;max-width:560px;display:grid;gap:10px}
+.sheet .box b{font-size:20px;font-weight:600}
+.sheet .box p{margin:0 0 8px;color:var(--muted)}
+.sheet .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 </style>
 </head>
 <body>
 <div class="app">
-  <header class="brand">
-    <b>James<em>OS</em></b>
-    <span class="net" id="net" role="status"><i></i><span id="nettext">connecting</span></span>
+  <header class="top">
+    <span class="word">JamesOS</span>
+    <span class="net wait" id="net" role="status"><i></i><span id="nettext">Connecting</span></span>
   </header>
 
+  <!-- HOME -->
   <main id="page-home">
-    <div class="offline" id="offline">Can't reach him. Is he on, and is your phone on the same Wi-Fi?</div>
-    <section class="hero" id="hero" aria-label="Your robot">
-      <div>
-        <div class="name" id="rname">Vector</div>
-        <div class="sub" id="rsub">Connecting…</div>
-      </div>
-      <div class="chips" id="rchips"></div>
-      <div class="batt">
-        <div class="top"><span>Battery</span><b id="bpct">–</b></div>
-        <div class="bar" role="progressbar" aria-label="Battery" aria-valuemin="0" aria-valuemax="100" id="bbarwrap"><i id="bfill"></i></div>
-      </div>
+    <div class="offline" id="offline">Can't reach your Vector. Check that he's on and that this phone is on the same Wi-Fi.</div>
+    <section class="status" aria-label="Your Vector">
+      <h1 id="rname">Your Vector</h1>
+      <p class="state" id="rstate">Connecting…</p>
+      <div class="meter" id="meter" role="progressbar" aria-label="Battery" aria-valuemin="0" aria-valuemax="100"><i id="bfill"></i></div>
+      <ul class="facts" id="facts"></ul>
     </section>
 
-    <div class="label">Controls</div>
-    <div class="tiles">
-      <button class="tile" type="button" data-go="customize"><span class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg></span>
-        <span class="tt"><b>Customize</b><small>Eyes, stars, holidays</small></span></button>
-      <button class="tile" type="button" data-go="utility"><span class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="8" width="18" height="13" rx="2"/><path d="M12 8v13M3 13h18M12 8c-1.5-3-5-4-5-1.5S10 8 12 8zm0 0c1.5-3 5-4 5-1.5S14 8 12 8z"/></svg></span>
-        <span class="tt"><b>Birthday</b><small id="uhint">Not set yet</small></span></button>
-      <button class="tile" type="button" data-go="badges"><span class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="9" r="6"/><path d="M8.5 14.2L7 22l5-3 5 3-1.5-7.8"/></svg></span>
-        <span class="tt"><b>Badges</b><small id="bcount">See all</small></span></button>
-      <button class="tile" type="button" data-go="news"><span class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l2.5 5 5.5.8-4 3.9.9 5.5L12 15.6 7.1 18.2l.9-5.5-4-3.9 5.5-.8z"/></svg></span>
-        <span class="tt"><b>What's new</b><small id="ncount">This version</small></span></button>
-    </div>
+    <ul class="list" aria-label="Settings">
+      <li><button class="item" type="button" data-go="customize">
+        <span class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></svg></span>
+        <span class="tx"><b>Customize</b><small>Eyes, stars, holidays, lights</small></span>
+        <svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button></li>
+      <li><button class="item" type="button" data-go="utility">
+        <span class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="9" width="18" height="12" rx="2"/><path d="M12 9v12M3 14h18M12 9c-2-4-6-4-6-1.5S10 9 12 9zm0 0c2-4 6-4 6-1.5S14 9 12 9z"/></svg></span>
+        <span class="tx"><b>Birthday</b><small id="uhint">Not set</small></span>
+        <svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button></li>
+      <li><button class="item" type="button" data-go="badges">
+        <span class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="9" r="6"/><path d="M8.5 14.2L7 22l5-3 5 3-1.5-7.8"/></svg></span>
+        <span class="tx"><b>Badges</b><small id="bcount">See what he's unlocked</small></span>
+        <svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button></li>
+      <li><button class="item" type="button" data-go="news">
+        <span class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l2.5 5 5.5.8-4 3.9.9 5.5L12 15.6 7.1 18.2l.9-5.5-4-3.9 5.5-.8z"/></svg></span>
+        <span class="tx"><b>What's new</b><small id="ncount">In this version</small></span>
+        <svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button></li>
+    </ul>
 
-    <div class="label">Coming soon</div>
-    <div class="soonlist">
-      <div class="soonrow"><span class="ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span><div><b>Desk clock</b><span>A big clock on his face</span></div><span class="tag">Soon</span></div>
-      <div class="soonrow"><span class="ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 3v18M15 3v18M3 9h18M3 15h18"/></svg></span><div><b>Games</b><span>Tic-tac-toe is in EXTRAS on his screen</span></div><span class="tag">Soon</span></div>
-      <div class="soonrow"><span class="ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 18a4 4 0 0 1-.5-8A5.5 5.5 0 0 1 17 9a4.5 4.5 0 0 1 0 9z"/></svg></span><div><b>Weather</b><span>Today's weather on his face</span></div><span class="tag">Later</span></div>
-    </div>
+    <h2 class="group-title">Coming soon</h2>
+    <ul class="list later">
+      <li><div class="item"><span class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>
+        <span class="tx"><b>Desk clock</b><small>A big clock on his face</small></span><span class="soon">Soon</span></div></li>
+      <li><div class="item"><span class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M9 3v18M15 3v18M3 9h18M3 15h18"/></svg></span>
+        <span class="tx"><b>Games</b><small>Tic-tac-toe is in EXTRAS on his screen</small></span><span class="soon">Soon</span></div></li>
+      <li><div class="item"><span class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 18a4 4 0 0 1-.5-8A5.5 5.5 0 0 1 17 9a4.5 4.5 0 0 1 0 9z"/></svg></span>
+        <span class="tx"><b>Weather</b><small>Today's weather on his face</small></span><span class="soon">Later</span></div></li>
+    </ul>
   </main>
 
+  <!-- CUSTOMIZE -->
   <main id="page-customize" hidden>
-    <div class="head">
-      <button class="back" type="button" data-go="home" aria-label="Back to home"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></button>
-      <h1>Customize</h1>
-    </div>
-    <p class="note">Same switches as EXTRAS on his screen. Changes show on his face in a second or two.</p>
-    <div class="offline" id="offline2">Can't reach him right now - changes won't save.</div>
-    <div id="rows" style="display:flex;flex-direction:column;gap:10px"></div>
+    <div class="head"><button class="back" type="button" data-go="home" aria-label="Back"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></button><span>Home</span></div>
+    <h1 class="page-title">Customize</h1>
+    <p class="intro">The same switches as EXTRAS on his screen. Changes show on his face in a second or two.</p>
+    <div class="offline" id="offline2">Can't reach your Vector, so changes won't save right now.</div>
+    <div id="groups"></div>
   </main>
 
+  <!-- BADGES -->
   <main id="page-badges" hidden>
-    <div class="head">
-      <button class="back" type="button" data-go="home" aria-label="Back to home"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></button>
-      <h1>Badges</h1>
-    </div>
-    <div class="sumrow"><b id="bsum">…</b><span>secrets show as ???</span></div>
-    <div class="prog" aria-hidden="true"><i id="bbar"></i></div>
-    <div class="grid" id="blist"></div>
+    <div class="head"><button class="back" type="button" data-go="home" aria-label="Back"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></button><span>Home</span></div>
+    <h1 class="page-title">Badges</h1>
+    <p class="intro">He earns these as you pet and play with him. Secret ones stay hidden until he finds them.</p>
+    <div class="progress"><div class="meter"><i id="bbar"></i></div><b id="bsum">…</b></div>
+    <h2 class="group-title" id="gotTitle">Unlocked</h2>
+    <ul class="list blist" id="blistGot"></ul>
+    <h2 class="group-title">Still to find</h2>
+    <ul class="list blist" id="blistLocked"></ul>
   </main>
 
+  <!-- WHAT'S NEW -->
   <main id="page-news" hidden>
-    <div class="head">
-      <button class="back" type="button" data-go="home" aria-label="Back to home"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></button>
-      <h1>What's new</h1>
-    </div>
-    <section class="news" aria-labelledby="nver">
-      <div class="vh"><b id="nver">…</b><span class="pill">Installed</span></div>
-      <ul id="nlist"></ul>
-    </section>
+    <div class="head"><button class="back" type="button" data-go="home" aria-label="Back"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></button><span>Home</span></div>
+    <h1 class="page-title">What's new <span class="vtag" id="nver">…</span></h1>
+    <p class="intro">What changed in the version he's running now.</p>
+    <ul class="list nlist" id="nlist" style="margin-top:18px"></ul>
   </main>
 
+  <!-- BIRTHDAY -->
   <main id="page-utility" hidden>
-    <div class="head">
-      <button class="back" type="button" data-go="home" aria-label="Back to home"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></button>
-      <h1>Utility</h1>
-    </div>
-    <section class="news" aria-labelledby="bdh">
-      <div style="display:flex;flex-direction:column;gap:4px">
-        <b id="bdh" style="font-size:18px;font-weight:800">Your birthday</b>
-        <span style="font-size:13px;color:var(--muted)" id="bdnow">He celebrates with you on that day. It stays on the robot only.</span>
-      </div>
-      <div class="form">
+    <div class="head"><button class="back" type="button" data-go="home" aria-label="Back"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></button><span>Home</span></div>
+    <h1 class="page-title">Your birthday</h1>
+    <p class="intro" id="bdnow">He celebrates with you on the day. It's saved on the robot only.</p>
+    <div class="form" style="margin-top:18px">
+      <div class="two">
         <label class="field">Month<select id="bdm"></select></label>
         <label class="field">Day<select id="bdd"></select></label>
       </div>
-      <label class="field">Name he shows (optional)<input id="bdn" type="text" maxlength="16" autocomplete="off" placeholder="Your name"></label>
-      <button class="primary" type="button" id="bdsave">Save birthday</button>
-      <button class="ghost" type="button" id="bdclear" hidden>Remove birthday</button>
-    </section>
+      <label class="field">Name on his screen (optional)<input id="bdn" type="text" maxlength="16" autocomplete="off" placeholder="Your name"></label>
+      <button class="btn" type="button" id="bdsave">Save birthday</button>
+      <button class="btn quiet" type="button" id="bdclear" hidden>Remove birthday</button>
+    </div>
   </main>
 </div>
-
-<nav aria-label="Main"><div class="in">
-  <button type="button" data-go="home" aria-current="page"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>Home</button>
-  <button type="button" data-go="customize"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg>Customize</button>
-  <button type="button" data-go="badges"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="9" r="6"/><path d="M8.5 14.2L7 22l5-3 5 3-1.5-7.8"/></svg>Badges</button>
-  <button type="button" data-go="news"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l2.5 5 5.5.8-4 3.9.9 5.5L12 15.6 7.1 18.2l.9-5.5-4-3.9 5.5-.8z"/></svg>New</button>
-</div></nav>
 
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 <div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
   <div class="box">
-    <b id="sheetTitle">Restart him?</b>
-    <p id="sheetText">The back lights load when he starts, so he restarts to change them. It takes about a minute.</p>
-    <div class="btns"><button type="button" id="sheetNo">Cancel</button><button type="button" class="go" id="sheetYes">Restart</button></div>
+    <b id="sheetTitle">Restart to change the lights?</b>
+    <p>His back lights load when he starts, so he restarts to change them. It takes about a minute.</p>
+    <div class="row2"><button type="button" class="btn quiet" id="sheetNo">Cancel</button><button type="button" class="btn" id="sheetYes">Restart</button></div>
   </div>
 </div>
 
@@ -256,34 +232,53 @@ nav button[aria-current=page] svg{background:var(--accent-soft);color:var(--acce
   var API = "/jamesos/api/";
   var state = null, failures = 0, busy = false;
 
-  var THEME = {auto: "Auto", normal: "Normal", halloween: "Halloween", christmas: "Christmas", lunar: "Chinese NY",
-    newyear: "New Year", valentine: "Valentine", stpatrick: "St Patrick", aprilfools: "April Fools", easter: "Easter",
+  var THEME = {auto: "Auto", normal: "Normal", halloween: "Halloween", christmas: "Christmas", lunar: "Chinese New Year",
+    newyear: "New Year", valentine: "Valentine's", stpatrick: "St Patrick's", aprilfools: "April Fools", easter: "Easter",
     mothersday: "Mother's Day", fireworks: "Fireworks", thanksgiving: "Thanksgiving",
     glitch: "Glitch", retro: "Retro", galaxymax: "Galaxy Max"};
   var HOLIDAY = {halloween: "Halloween", christmas: "Christmas", lunar: "Chinese New Year", newyear: "New Year",
     "newyear-midnight": "New Year", valentine: "Valentine's Day", mothersday: "Mother's Day", stpatrick: "St Patrick's Day",
-    aprilfools: "April Fools", easter: "Easter", fireworks: "Fireworks", thanksgiving: "Thanksgiving", shiny: "Shiny day!"};
-  var EYE = {halloween: "#F59E0B", christmas: "#EF4444", lunar: "#EF4444", valentine: "#F472B6", mothersday: "#F472B6",
-    stpatrick: "#22C55E", easter: "#C4B5FD", thanksgiving: "#F59E0B", newyear: "#FDE047", "newyear-midnight": "#FDE047",
-    fireworks: "#60A5FA", aprilfools: "#A78BFA", shiny: "#FDE047"};
-
-  // [key, label, hint, [[value, name], ...]]  (stars/theme lists come from the robot: unlocked ones only)
-  var ROWS = [
-    ["theme", "Theme", "Auto follows the calendar", null],
-    ["holidaytime", "Holiday time", "Whole season or only the day", [["season", "Season"], ["day", "Day"]]],
-    ["holidays", "Holidays", "Which ones he celebrates", [["all", "All"], ["western", "Western"], ["off", "Off"]]],
-    ["stars", "Stars", "Sparkles in his eyes", null],
-    ["petting", "Galaxy eyes", "When petted, or always", [["galaxy", "When petted"], ["always", "Always"], ["off", "Off"]]],
-    ["mood", "Mood colors", "Warm when happy, blue when sad", [["on", "On"], ["off", "Off"]]],
-    ["sleepy", "Sleepy eyes", "When the battery is low", [["on", "On"], ["off", "Off"]]],
-    ["funeyes", "Fun eyes", "Pumpkin, heart, flag shapes", [["auto", "Holiday only"], ["on", "On"], ["off", "Off"]]],
-    ["sleep", "Sleep screen", "While he sleeps on the charger", [["stars", "Stars"], ["clock", "Clock"], ["both", "Both"], ["off", "Off"]]],
-    ["lights", "Back lights", "Changing them restarts him", [["custom", "JamesOS"], ["normal", "WireOS"], ["anki", "Anki"]]]
-  ];
+    aprilfools: "April Fools", easter: "Easter", fireworks: "Fireworks", thanksgiving: "Thanksgiving", shiny: "A shiny day"};
+  var EYE = {halloween: "#F08A24", christmas: "#E5534B", lunar: "#E5534B", valentine: "#F06EAA", mothersday: "#F06EAA",
+    stpatrick: "#4CBF6B", easter: "#B9A6F5", thanksgiving: "#E59A3B", newyear: "#F2D04B", "newyear-midnight": "#F2D04B",
+    fireworks: "#5FA8F0", aprilfools: "#A58BF0", shiny: "#F2D04B"};
   var STAR = {rainbow: "Rainbow", white: "White", shooting: "Shooting", gold: "Gold", off: "Off"};
+
+  // groups of settings: [key, label, hint, choices or null (from the robot: unlocked ones only)]
+  var GROUPS = [
+    ["Eyes", [
+      ["theme", "Theme", "Auto follows the calendar", null],
+      ["stars", "Stars", "Sparkles in his eyes", null],
+      ["petting", "Galaxy eyes", "", [["galaxy", "When petted"], ["always", "Always"], ["off", "Off"]]],
+      ["funeyes", "Holiday shapes", "Pumpkin, heart, flag", [["auto", "Holiday only"], ["on", "On"], ["off", "Off"]]],
+      ["mood", "Mood colors", "Warm happy, blue sad", [["on", "On"], ["off", "Off"]]],
+      ["sleepy", "Sleepy eyes", "When the battery is low", [["on", "On"], ["off", "Off"]]]
+    ]],
+    ["Holidays", [
+      ["holidays", "Holidays", "Which ones he celebrates", [["all", "All"], ["western", "Western"], ["off", "Off"]]],
+      ["holidaytime", "How long", "", [["season", "Whole season"], ["day", "Just the day"]]]
+    ]],
+    ["Sleep", [
+      ["sleep", "Sleep screen", "On the charger at night", [["stars", "Stars"], ["clock", "Clock"], ["both", "Both"], ["off", "Off"]]]
+    ]],
+    ["Back lights", [
+      ["lights", "Light style", "He restarts to change them", [["custom", "JamesOS"], ["normal", "WireOS"], ["anki", "Anki"]]]
+    ]]
+  ];
+  var LABEL = {};
+  GROUPS.forEach(function (g) { g[1].forEach(function (r) { LABEL[r[0]] = r; }); });
+
+  var TITLES = {home: "JamesOS", customize: "Customize", badges: "Badges", news: "What's new", utility: "Birthday"};
+  var MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
   function $(id) { return document.getElementById(id); }
   function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+  function svg(path) {
+    var s = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    s.setAttribute("width", "20"); s.setAttribute("height", "20"); s.setAttribute("viewBox", "0 0 24 24"); s.setAttribute("fill", "none");
+    s.setAttribute("stroke", "currentColor"); s.setAttribute("stroke-width", "2"); s.setAttribute("stroke-linecap", "round"); s.setAttribute("stroke-linejoin", "round");
+    s.setAttribute("aria-hidden", "true"); s.innerHTML = path; return s;
+  }
 
   var toastTimer;
   function toast(msg) {
@@ -305,61 +300,71 @@ nav button[aria-current=page] svg{background:var(--accent-soft);color:var(--acce
   }
 
   function choices(key) {
-    var row = ROWS.filter(function (r) { return r[0] === key; })[0];
-    if (row[3]) return row[3];
+    if (LABEL[key][3]) return LABEL[key][3];
     var list = (state && state.choices && state.choices[key]) || [];
     var names = key === "theme" ? THEME : STAR;
     return list.map(function (v) { return [v, names[v] || v]; });
   }
 
-  function drawRows() {
-    var box = $("rows"); box.textContent = "";
-    ROWS.forEach(function (r) {
-      var key = r[0], now = state && state.settings ? state.settings[key] : null;
-      var sec = el("section", "row"); sec.setAttribute("aria-label", r[1]);
-      var top = el("div", "top"); top.appendChild(el("b", null, r[1]));
-      var hint = r[2];
-      if (key === "lights" && now === "notsent") hint = "His JamesOS lights aren't on this robot yet";
-      top.appendChild(el("span", null, hint)); sec.appendChild(top);
-      var group = el("div", "opts"); group.setAttribute("role", "group"); group.setAttribute("aria-label", r[1]);
-      choices(key).forEach(function (c) {
-        var b = el("button", "opt", c[1]); b.type = "button";
-        b.setAttribute("aria-pressed", String(now === c[0]));
-        b.disabled = !state || busy || (key === "lights" && now === "notsent" && c[0] !== "anki");
-        b.addEventListener("click", function () { pick(key, c[0], c[1], b); });
-        group.appendChild(b);
+  // ---- customize ----
+  function drawGroups() {
+    var box = $("groups"); box.textContent = "";
+    GROUPS.forEach(function (g) {
+      box.appendChild(el("h2", "group-title", g[0]));
+      var card = el("div", "list");
+      g[1].forEach(function (r) {
+        var key = r[0], now = state && state.settings ? state.settings[key] : null;
+        var row = el("div", "setting");
+        var lbl = el("div", "lbl"); lbl.appendChild(el("b", null, r[1]));
+        var hint = r[2];
+        if (key === "lights" && now === "notsent") hint = "JamesOS lights aren't on him yet";
+        if (hint) lbl.appendChild(el("small", null, hint));
+        row.appendChild(lbl);
+        var opts = choices(key);
+        var group = el("div", opts.length > 4 ? "chips" : "seg");
+        group.setAttribute("role", "group"); group.setAttribute("aria-label", r[1]);
+        opts.forEach(function (c) {
+          var b = el("button", null, c[1]); b.type = "button";
+          b.setAttribute("aria-pressed", String(now === c[0]));
+          b.disabled = !state || busy || (key === "lights" && now === "notsent" && c[0] !== "anki");
+          b.addEventListener("click", function () { pick(key, c[0], c[1]); });
+          group.appendChild(b);
+        });
+        row.appendChild(group); card.appendChild(row);
       });
-      sec.appendChild(group); box.appendChild(sec);
+      box.appendChild(card);
     });
   }
 
+  // ---- home ----
   function drawHome() {
-    var s = state;
-    $("offline").classList.toggle("show", failures >= 2);
-    $("offline2").classList.toggle("show", failures >= 2);
-    $("nettext").textContent = failures >= 2 ? "offline" : (state ? "connected" : "connecting");
-    $("net").classList.toggle("off", failures >= 2);
+    var s = state, off = failures >= 2;
+    $("offline").classList.toggle("show", off);
+    $("offline2").classList.toggle("show", off);
+    $("nettext").textContent = off ? "Offline" : (s ? "Connected" : "Connecting");
+    $("net").classList.toggle("off", off);
+    $("net").classList.toggle("wait", !s && !off);
     if (!s) return;
-    $("rname").textContent = s.host || "Vector";
-    $("rsub").textContent = "JamesOS " + (s.version || "") ;
-    var col = EYE[s.holidayNow] || "#4ADE80";
-    document.documentElement.style.setProperty("--hol", col);
-    var chips = $("rchips"); chips.textContent = "";
-    function chip(text, dot) { var c = el("span", "chip"); if (dot) c.appendChild(el("i")); c.appendChild(document.createTextNode(text)); chips.appendChild(c); }
-    if (HOLIDAY[s.holidayNow]) chip(HOLIDAY[s.holidayNow], true);
-    chip(s.charger ? (s.charging ? "Charging" : "On the charger") : "Off the charger");
-    if (s.petsToday > 0) chip(s.petsToday + (s.petsToday === 1 ? " pet today" : " pets today"));
-    var pct = s.battery >= 0 ? Math.min(100, s.battery) : 0;
+    var name = s.host || "Your Vector";
+    $("rname").textContent = name;
+    var full = s.charger && !s.charging, st = $("rstate"); st.textContent = "";
+    st.appendChild(el("b", null, s.charger ? (s.charging ? "Charging" : "Fully charged") : "Off the charger"));
+    if (s.battery >= 0 && !full) st.appendChild(document.createTextNode(", " + Math.min(100, s.battery) + "%"));
+    var pct = full ? 100 : (s.battery >= 0 ? Math.min(100, s.battery) : 0);
     $("bfill").style.width = pct + "%";
-    $("bbarwrap").setAttribute("aria-valuenow", String(pct));
-    $("bpct").textContent = s.battery < 0 ? "–" : (s.charger && !s.charging ? "Full" : pct + "%");
-    $("bcount").textContent = s.badgesTotal ? s.badges + " of " + s.badgesTotal + " unlocked" : "See all";
-    $("ncount").textContent = s.version ? "In " + s.version : "This version";
-    $("uhint").textContent = s.birthday ? MONTHS[s.birthday.month - 1] + " " + s.birthday.day : "Not set yet";
+    $("meter").setAttribute("aria-valuenow", String(pct));
+    document.documentElement.style.setProperty("--hol", EYE[s.holidayNow] || "#F2B544");
+    var f = $("facts"); f.textContent = "";
+    if (HOLIDAY[s.holidayNow]) { var h = el("li", "hol"); h.appendChild(el("i")); h.appendChild(document.createTextNode(HOLIDAY[s.holidayNow])); f.appendChild(h); }
+    if (s.petsToday > 0) f.appendChild(el("li", null, s.petsToday + (s.petsToday === 1 ? " pet today" : " pets today")));
+    if (s.version) f.appendChild(el("li", null, "JamesOS " + s.version));
+    $("bcount").textContent = s.badgesTotal ? s.badges + " of " + s.badgesTotal + " unlocked" : "See what he's unlocked";
+    $("ncount").textContent = s.version ? "In " + s.version : "In this version";
+    $("uhint").textContent = s.birthday ? MONTHS[s.birthday.month - 1] + " " + s.birthday.day : "Not set";
     drawBirthday();
   }
 
-  function draw() { drawHome(); drawRows(); }
+  function draw() { drawHome(); drawGroups(); }
 
   function refresh() {
     if (busy || document.hidden) return Promise.resolve();
@@ -367,32 +372,27 @@ nav button[aria-current=page] svg{background:var(--accent-soft);color:var(--acce
       .catch(function () { failures++; drawHome(); });
   }
 
-  function pick(key, value, name, btn) {
+  function pick(key, value, name) {
     if (!state || busy || state.settings[key] === value) return;
-    if (key === "lights") {
-      ask(function () { send(key, value, name, btn); });
-      return;
-    }
-    send(key, value, name, btn);
+    if (key === "lights") { ask(function () { send(key, value, name); }); return; }
+    send(key, value, name);
   }
 
-  function send(key, value, name, btn) {
-    busy = true; if (btn) btn.classList.add("busy");
+  function send(key, value, name) {
+    busy = true;
     var old = state.settings[key];
-    state.settings[key] = value; drawRows();   // show it right away
+    state.settings[key] = value; drawGroups();   // show it right away
     request("POST", "set", key + "=" + value).then(function (j) {
       busy = false;
       if (j.state) state = j.state;
       failures = 0; draw();
-      if (j.restart) { toast("Restarting him… back in about a minute"); failures = -30; }
-      else toast(labelOf(key) + ": " + name);
+      if (j.restart) { toast("Restarting. He'll be back in about a minute"); failures = -30; }
+      else toast(LABEL[key][1] + " set to " + name);
     }).catch(function (e) {
       busy = false; state.settings[key] = old; draw();
-      toast(e.server ? "Didn't work: " + e.message : "Can't reach him - nothing changed");
+      toast(e.server ? "Not saved: " + e.message : "Not saved. Can't reach your Vector");
     });
   }
-
-  function labelOf(key) { return ROWS.filter(function (r) { return r[0] === key; })[0][1]; }
 
   function ask(yes) {
     var sh = $("sheet"); sh.classList.add("show"); $("sheetYes").focus();
@@ -406,13 +406,10 @@ nav button[aria-current=page] svg{background:var(--accent-soft);color:var(--acce
   function go(page) {
     if (!TITLES[page]) page = "home";
     Object.keys(TITLES).forEach(function (k) { $("page-" + k).hidden = k !== page; });
-    document.title = page === "home" ? "JamesOS" : TITLES[page] + " · JamesOS";
+    document.title = page === "home" ? "JamesOS" : TITLES[page] + " - JamesOS";
     if (page === "badges") loadBadges();
     if (page === "news") loadNews();
     if (page === "utility") { bdDirty = false; drawBirthday(); }
-    Array.prototype.forEach.call(document.querySelectorAll("nav button[data-go]"), function (b) {
-      if (b.getAttribute("data-go") === page) b.setAttribute("aria-current", "page"); else b.removeAttribute("aria-current");
-    });
     if (location.hash !== "#" + page) history.replaceState(null, "", "#" + page);
     window.scrollTo(0, 0);
   }
@@ -422,42 +419,48 @@ nav button[aria-current=page] svg{background:var(--accent-soft);color:var(--acce
   });
   window.addEventListener("hashchange", function () { go(location.hash.slice(1)); });
 
-  var TITLES = {home: "Home", customize: "Customize", badges: "Badges", news: "What's new", utility: "Utility"};
-  var MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-
+  // ---- badges ----
+  var MEDAL = '<circle cx="12" cy="9" r="6"/><path d="M8.5 14.2L7 22l5-3 5 3-1.5-7.8"/>';
+  var LOCK = '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>';
   function loadBadges() {
     request("GET", "badges").then(function (j) {
-      var list = j.badges || [], got = list.filter(function (b) { return b.date > 0; }).length;
-      $("bsum").textContent = got + " of " + list.length + " unlocked";
-      $("bbar").style.width = (list.length ? Math.round(got * 100 / list.length) : 0) + "%";
-      var box = $("blist"); box.textContent = "";
-      list.slice().sort(function (a, b) { return (b.date > 0) - (a.date > 0); }).forEach(function (b) {
-        var have = b.date > 0, c = el("div", "badge" + (have ? " got" : ""));
-        c.appendChild(el("div", "dot", have ? "\u2713" : (b.name === "???" ? "?" : ""))).setAttribute("aria-hidden", "true");
-        c.appendChild(el("b", null, b.name));
-        c.appendChild(el("span", null, b.hint));
+      var list = j.badges || [], got = list.filter(function (b) { return b.date > 0; });
+      $("bsum").textContent = got.length + " of " + list.length;
+      $("bbar").style.width = (list.length ? Math.round(got.length * 100 / list.length) : 0) + "%";
+      var a = $("blistGot"), b = $("blistLocked"); a.textContent = ""; b.textContent = "";
+      $("gotTitle").hidden = a.hidden = !got.length;
+      list.forEach(function (x) {
+        var have = x.date > 0, li = el("li", have ? "" : "locked"), it = el("div", "item");
+        var ic = el("span", "ic"); ic.appendChild(svg(have ? MEDAL : LOCK)); it.appendChild(ic);
+        var tx = el("span", "tx"); tx.appendChild(el("b", null, x.name === "???" ? "Secret badge" : cap(x.name)));
+        tx.appendChild(el("small", null, x.hint)); it.appendChild(tx);
         if (have) {
-          var d = String(b.date);
-          c.appendChild(el("span", "when", "Got it " + MONTHS[+d.slice(4, 6) - 1].slice(0, 3) + " " + (+d.slice(6, 8)) + ", " + d.slice(0, 4)));
+          var d = String(x.date);
+          it.appendChild(el("span", "when", MONTHS[+d.slice(4, 6) - 1].slice(0, 3) + " " + (+d.slice(6, 8))));
         }
-        box.appendChild(c);
+        li.appendChild(it); (have ? a : b).appendChild(li);
       });
-    }).catch(function () { $("bsum").textContent = "Can't reach him right now"; });
+    }).catch(function () { $("bsum").textContent = "Can't reach him"; });
   }
 
+  // ---- what's new ----
+  var STARICON = '<path d="M12 3l2.5 5 5.5.8-4 3.9.9 5.5L12 15.6 7.1 18.2l.9-5.5-4-3.9 5.5-.8z"/>';
   function loadNews() {
     request("GET", "whatsnew").then(function (j) {
-      $("nver").textContent = j.version || "JamesOS";
+      $("nver").textContent = j.version || "";
       var ul = $("nlist"); ul.textContent = "";
-      (j.items || []).forEach(function (it) {
-        var li = el("li"); li.appendChild(el("b", null, cap(it.name))); li.appendChild(el("span", null, cap(it.text))); ul.appendChild(li);
+      (j.items || []).forEach(function (n) {
+        var li = el("li"), it = el("div", "item"), ic = el("span", "ic"); ic.appendChild(svg(STARICON)); it.appendChild(ic);
+        var tx = el("span", "tx"); tx.appendChild(el("b", null, cap(n.name))); tx.appendChild(el("small", null, cap(n.text)));
+        it.appendChild(tx); li.appendChild(it); ul.appendChild(li);
       });
-      if (!(j.items || []).length) ul.appendChild(el("li", "empty", "Nothing listed for this version."));
-    }).catch(function () { $("nver").textContent = "Can't reach him right now"; });
+      if (!(j.items || []).length) { var li = el("li"); li.appendChild(el("div", "item", "Nothing listed for this version.")); ul.appendChild(li); }
+    }).catch(function () { $("nver").textContent = "offline"; });
   }
-  // the robot's list is in capitals (his screen font); make it easier to read here
+  // the robot's lists are in capitals (his screen font): make them easier to read here
   function cap(t) {
-    t = String(t || "").toLowerCase().replace(/jamesos/g, "JamesOS").replace(/wi-fi/g, "Wi-Fi").replace(/\banki\b/g, "Anki").replace(/\bwireos\b/g, "WireOS");
+    t = String(t || "").toLowerCase().replace(/jamesos/g, "JamesOS").replace(/wi-fi/g, "Wi-Fi").replace(/\banki\b/g, "Anki")
+      .replace(/\bwireos\b/g, "WireOS").replace(/\bextras\b/g, "EXTRAS").replace(/\bconf\b/g, "CONF");
     return t.charAt(0).toUpperCase() + t.slice(1);
   }
 
@@ -477,7 +480,7 @@ nav button[aria-current=page] svg{background:var(--accent-soft);color:var(--acce
     $("bdn").addEventListener("input", function () { bdDirty = true; });
     $("bdsave").addEventListener("click", function () {
       var name = plain($("bdn").value);
-      if (name.length > 16) { toast("Name is too long (16 letters)"); return; }
+      if (name.length > 16) { toast("Use 16 letters or fewer for the name"); return; }
       var v = (m.value.length < 2 ? "0" : "") + m.value + "-" + (d.value.length < 2 ? "0" : "") + d.value + (name ? " " + name : "");
       saveBirthday(v, "Birthday saved: " + MONTHS[+m.value - 1] + " " + d.value);
     });
@@ -487,7 +490,7 @@ nav button[aria-current=page] svg{background:var(--accent-soft);color:var(--acce
   // his screen only has A-Z: "Zoé" -> "ZOE", other letters are dropped
   function plain(t) {
     t = String(t || "");
-    if (t.normalize) t = t.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    if (t.normalize) t = t.normalize("NFD").replace(/[̀-ͯ]/g, "");
     return t.replace(/[^A-Za-z '\-]/g, "").replace(/\s+/g, " ").trim().toUpperCase();
   }
   function saveBirthday(v, okMsg) {
@@ -496,7 +499,7 @@ nav button[aria-current=page] svg{background:var(--accent-soft);color:var(--acce
     request("POST", "set", "birthday=" + v).then(function (j) {
       busy = false; bdDirty = false; if (j.state) state = j.state; draw(); toast(okMsg);
     }).catch(function (e) {
-      busy = false; toast(e.server ? "Didn't work: " + e.message : "Can't reach him - nothing saved");
+      busy = false; toast(e.server ? "Not saved: " + e.message : "Not saved. Can't reach your Vector");
     });
   }
   function drawBirthday() {
@@ -504,8 +507,8 @@ nav button[aria-current=page] svg{background:var(--accent-soft);color:var(--acce
     var b = state.birthday;
     $("bdclear").hidden = !b;
     $("bdnow").textContent = b
-      ? "Saved: " + MONTHS[b.month - 1] + " " + b.day + (b.name ? " · " + b.name : "") + ". He celebrates with you that day."
-      : "He celebrates with you on that day. It stays on the robot only.";
+      ? "Saved for " + MONTHS[b.month - 1] + " " + b.day + (b.name ? " as " + b.name : "") + ". He celebrates with you on the day."
+      : "He celebrates with you on the day. It's saved on the robot only.";
     if (b) { $("bdm").value = String(b.month); $("bdm").dispatchEvent(new Event("change")); bdDirty = false; $("bdd").value = String(b.day); $("bdn").value = b.name || ""; }
   }
 

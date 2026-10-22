@@ -877,4 +877,73 @@ if not os.path.exists(page_dst) or open(page_dst, "rb").read() != data:
         f.write(data)
 print("[25] Companion page: http://<robot IP>:8889/jamesos/  (Home + Customize)")
 
+# ------------------------------------------------------------------ [26] smooth sleep screen (v29)
+# While he sleeps his animation sends very few new face frames, so the stars and clock (drawn on top of the
+# face) only moved now and then. Now, on the charger with the sleep screen on, the last eyes are drawn again
+# about 10 times a second when no new frame came. Only for normal eyes: never over menus, weather, timers.
+dh = read(DRAWER_H)
+anchor26 = "    static s32  JamesBadgeCount();\n"
+if "JamesWantsFrames(" not in dh:
+    must_have(dh, anchor26, DRAWER_H)
+    dh = dh.replace(anchor26, anchor26 + "    static bool JamesWantsFrames(); // JamesOS v29: keep redrawing while the sleep screen can show\n", 1)
+if "JamesNoteStream(" not in dh:
+    must_have(dh, anchor26, DRAWER_H)
+    dh = dh.replace(anchor26, anchor26 + "    static void JamesNoteStream(bool showingEyes, bool redrew); // JamesOS v29 debug\n", 1)
+write(DRAWER_H, dh)
+STREAMER_CPP = "animProcess/src/cozmoAnim/animation/animationStreamer.cpp"
+st = read(STREAMER_CPP)
+if "gJamesLastFace" not in st:
+    a1 = "  void AnimationStreamer::BufferFaceToSend(Vision::ImageRGB565& faceImg565)\n"
+    a2 = ("      GetStreamableFace(context, layeredKeyFrames.faceKeyFrame.GetFace(), stateToSend.faceImg);\n"
+          "      stateToSend.haveFaceToSend = true;\n")
+    a3 = "        Vision::ImageRGBA img(FACE_DISPLAY_HEIGHT, FACE_DISPLAY_WIDTH);\n        compImg.DrawIntoImage(img);\n"
+    a4 = "    // Send the data\n    SendAnimationMessages(messageWrapper);\n"
+    for a in (a1, a2, a3, a4):
+        must_have(st, a, STREAMER_CPP)
+        if st.count(a) != 1:
+            die("More than one matching spot in " + STREAMER_CPP)
+    st = st.replace(a1, """  // JamesOS v29: the last normal eyes shown, so the sleep screen can keep moving between animation frames
+  namespace {
+    ProceduralFace* gJamesLastFace = nullptr;   // made the first time eyes are shown (not at start-up)
+    bool gJamesShowingEyes = false;   // false while a picture (weather, timer, ...) is on the screen
+    u32  gJamesRedrawTick = 0;
+  }
+
+""" + a1, 1)
+    st = st.replace(a2, a2 + "      if (gJamesLastFace == nullptr) { gJamesLastFace = new ProceduralFace(layeredKeyFrames.faceKeyFrame.GetFace()); } // JamesOS v29\n"
+          "      else { *gJamesLastFace = layeredKeyFrames.faceKeyFrame.GetFace(); }\n      gJamesShowingEyes = true;\n", 1)
+    st = st.replace(a3, "        gJamesShowingEyes = false; // JamesOS v29: a picture, not just eyes\n" + a3, 1)
+    st = st.replace(a4, """    // JamesOS v29: no new face this tick? While the sleep screen can show, draw the same eyes again
+    // (~10 times a second) so the stars twinkle and the clock shows. Only when plain eyes are on the screen.
+    if (!kIsInManualUpdateMode && !messageWrapper.haveFaceToSend && gJamesShowingEyes && gJamesLastFace != nullptr &&
+        !IsTrackLocked(_lockedTracks, (u8)AnimTrackFlag::FACE_TRACK) &&
+        ProceduralFaceDrawer::JamesWantsFrames() && (++gJamesRedrawTick % 3) == 0)
+    {
+      GetStreamableFace(_context, *gJamesLastFace, messageWrapper.faceImg);
+      messageWrapper.haveFaceToSend = true;
+      ProceduralFaceDrawer::JamesNoteStream(gJamesShowingEyes, true);
+    }
+    else
+    {
+      ProceduralFaceDrawer::JamesNoteStream(gJamesShowingEyes, false);
+    }
+
+""" + a4, 1)
+    write(STREAMER_CPP, st)
+if "JamesNoteStream(" not in st:   # first v29 build had no debug note: add it
+    old = ("      messageWrapper.haveFaceToSend = true;\n"
+           "    }\n\n"
+           "    // Send the data\n")
+    must_have(st, old, STREAMER_CPP)
+    st = st.replace(old, ("      messageWrapper.haveFaceToSend = true;\n"
+                          "      ProceduralFaceDrawer::JamesNoteStream(gJamesShowingEyes, true);\n"
+                          "    }\n"
+                          "    else\n"
+                          "    {\n"
+                          "      ProceduralFaceDrawer::JamesNoteStream(gJamesShowingEyes, false);\n"
+                          "    }\n\n"
+                          "    // Send the data\n"), 1)
+    write(STREAMER_CPP, st)
+print("[26] Smooth sleep screen: stars and clock keep moving while he sleeps (real 6 seconds, not frames)")
+
 print("\nAll done. Next: ./jamesos.sh go   (builds + deploys)")

@@ -1131,6 +1131,8 @@ namespace {
   std::atomic<bool>  gJamesOwnEyes{false}; // you picked an eye color (voice/app) while a theme is on: your color wins
   const char* kJamesOwnEyesFile = "/data/data/jamesos/own_eyes";   // remembers that (per theme) across restarts
   std::atomic<int>   gJamesSleepMode{0};   // JamesSleepMode
+  std::atomic<bool>  gJamesDbgEyes{false};   // v29 debug
+  std::atomic<int>   gJamesDbgRedraws{0};    // v29 debug
   std::mutex         gJamesPetsMtx;
   bool               gJamesPetsLoaded = false;
 
@@ -1869,6 +1871,20 @@ void ProceduralFaceDrawer::JamesSetPetting(bool petting)
   }
 }
 
+// v29: should the face keep being redrawn even without new animation frames?
+// Yes while he can show the sleep screen (on the charger, sleep screen on), so stars twinkle and the clock ticks.
+bool ProceduralFaceDrawer::JamesWantsFrames()
+{
+  return gJamesOnCharger && gJamesSleepMode.load() != 0;
+}
+
+// v29 debug: what the animation streamer did (shown in /dev/shm/jamesos_sleep)
+void ProceduralFaceDrawer::JamesNoteStream(bool showingEyes, bool redrew)
+{
+  gJamesDbgEyes = showingEyes;
+  if (redrew) { ++gJamesDbgRedraws; }
+}
+
 void ProceduralFaceDrawer::JamesSetStatus(f32 battVolts, s32 battTempC, bool onCharger, bool charging,
                                           s32 hour, s32 minute, s32 dateKey)
 {
@@ -2577,6 +2593,7 @@ bool ProceduralFaceDrawer::ApplyJamesExtras(Vision::ImageRGB565& output, bool di
   static f32 flicker = 1.f, flickerTarget = 1.f;
   static std::vector<SkyStar> sky;
   static s32 closedFrames = 0;
+  static f32 closedSec = 0.f;   // v29: how long his eyes have been closed, in real seconds
   static f32 sleepAmt = 0.f;
   static u32 frame = 0;
   ++frame;
@@ -3390,11 +3407,38 @@ bool ProceduralFaceDrawer::ApplyJamesExtras(Vision::ImageRGB565& output, bool di
         if (row[x] >= kJamesStarMaskThreshold) { lit += 4; }
       }
     }
-    const bool closed = lit < (s32)(0.06f * (f32)(W * H));
+    // v29: sleeping eyes light ~6.2% of the screen (open eyes 19-60%), so 6% was too tight: use 10%
+    const bool closed = lit < (s32)(0.10f * (f32)(W * H));
     closedFrames = closed ? std::min(closedFrames + 1, 100000) : 0;
+    // v29: count REAL time, not frames. While he sleeps his face gets few new frames, so
+    // "180 frames" could take minutes and the stars/clock faded in and out. Now: 6 seconds.
+    static long long closedSinceMs = 0, lastSleepMs = 0;
+    const long long sleepNowMs = JamesNowMs();
+    const f32 dt = (lastSleepMs == 0) ? 0.033f : Util::Clamp((f32)(sleepNowMs - lastSleepMs) / 1000.f, 0.f, 0.5f);
+    lastSleepMs = sleepNowMs;
+    if (closed) { if (closedSinceMs == 0) { closedSinceMs = sleepNowMs; } } else { closedSinceMs = 0; }
+    closedSec = (closedSinceMs == 0) ? 0.f : (f32)(sleepNowMs - closedSinceMs) / 1000.f;
     const JamesSleepMode mode = (JamesSleepMode)gJamesSleepMode.load();
-    const bool sleeping = (mode != JamesSleepMode::Off) && gJamesOnCharger && closedFrames > 180; // ~6 s
-    sleepAmt = Util::Clamp(sleepAmt + (sleeping ? 0.02f : -0.08f), 0.f, 1.f);
+    const bool sleeping = (mode != JamesSleepMode::Off) && gJamesOnCharger && closedSec > 6.f;
+    sleepAmt = Util::Clamp(sleepAmt + (sleeping ? dt / 1.5f : -dt / 0.4f), 0.f, 1.f);   // fade in 1.5 s, out 0.4 s
+    // v29 debug: touch /data/data/jamesos/sleep.debug and every second one line goes to /dev/shm/jamesos_sleep
+    {
+      static long long dbgLastMs = 0;
+      static u32 dbgFrames = 0;
+      ++dbgFrames;
+      if (sleepNowMs - dbgLastMs >= 1000) {
+        if (JamesFileExists("/data/data/jamesos/sleep.debug")) {
+          std::ofstream dbg("/dev/shm/jamesos_sleep", std::ios::app);
+          dbg << "lit=" << (100.f * (f32)lit / (f32)(W * H)) << "% closed=" << (closed ? 1 : 0)
+              << " closedSec=" << closedSec << " charger=" << (gJamesOnCharger ? 1 : 0)
+              << " mode=" << (int)mode << " sleepAmt=" << sleepAmt << " frames/s=" << dbgFrames
+              << " eyes=" << (gJamesDbgEyes ? 1 : 0) << " redraws=" << gJamesDbgRedraws.exchange(0)
+              << " hour=" << gJamesHour.load() << "\n";
+        }
+        dbgLastMs = sleepNowMs;
+        dbgFrames = 0;
+      }
+    }
 
     if (sleepAmt > 0.f) {
       if (sky.empty()) {
@@ -3535,7 +3579,7 @@ bool ProceduralFaceDrawer::ApplyJamesExtras(Vision::ImageRGB565& output, bool di
     static bool wasPetting = false, wasAsleep = false;
     const s32 kBannerFrames = 120;
     const bool petting = gJamesPetting;
-    const bool asleep = closedFrames > 300;
+    const bool asleep = closedSec > 10.f;
     bool trigger = (frame == 240);                                // just started
     if (petting && !wasPetting && !JamesIsTheme(JamesTheme::StPatrick)) { trigger = true; }   // started petting (St Patrick's: the rainbow shows instead)
     if (wasAsleep && closedFrames == 0) { trigger = true; }       // woke up

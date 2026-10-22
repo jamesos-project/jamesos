@@ -13,7 +13,8 @@ def p(*a): return os.path.join(D, *a)
 def read(f): return open(p(f), encoding="utf-8").read()
 def write(f, s): open(p(f), "w", encoding="utf-8").write(s)
 
-GOLD = "#e2b54a"
+GOLD = "#e2b54a"   # the old JamesOS color (earlier versions of this patch)
+GOLD2 = "#F2B544"   # JamesOS gold (v28 look)
 changed = []
 
 # --- only one stack: JamesOS (its OTA files live in site/firmware/jamesos/)
@@ -53,11 +54,15 @@ s = s.replace('<img src="/static/images/ddl_logo.png" />', '<img src="/static/im
 if 'class="jos-tip"' not in s:
     s = re.sub(r'(id="btnDiscoverVector"\s*value="Pair with Vector"\s*class="vec-btn"\s*/>\s*</div>)',
                r'\1\n          <p class="jos-tip">Vector shows a <b>cloud with !</b> after an install try? '
-               r'That means the download did not start. Just click <b>PAIR WITH VECTOR</b> again.</p>', s, count=1)
+               r'That means the download did not start. Just click <b>Pair with Vector</b> again.</p>', s, count=1)
+# the steps name the button the way it's written on it
+s = re.sub(r'click "PAIR WITH\s+VECTOR\."', 'click <b>Pair with Vector</b>.', s)
+s = s.replace("<b>PAIR WITH VECTOR</b>", "<b>Pair with Vector</b>")
 # footer: one short line; the full credits and licenses (DDL, Font Awesome, WireOS) are on the Credits screen
 s = re.sub(r'(<div class="vec-ui-footer-middle">\s*<span>).*?(</span>\s*</div>)',
            r'\1JamesOS Setup, based on Vector Web Setup by Digital Dream Labs. '
-           r'<a href="#" data-open="jamesCredits" onclick="return false">Credits and licenses</a>\2',
+           r'<a href="#" data-open="jamesCredits" onclick="return false">Credits and licenses</a> · '
+           r'<a href="https://github.com/jamesos-project/jamesos" target="_blank" rel="noopener">Source code</a>\2',
            s, count=1, flags=re.S)
 overlay = open(os.path.join(HERE, "overlay.html"), encoding="utf-8").read()
 if "<!-- JamesOS: welcome + credits screens -->" in s:
@@ -66,6 +71,10 @@ else:
     s = s.replace('<div id="serverIp" class="vec-hidden">', overlay + '      <div id="serverIp" class="vec-hidden">', 1)
 if 'class="jos-tip"' not in s or 'id="jamesWelcome"' not in s:
     sys.exit("couldn't add the JamesOS welcome screen or tip (different Vector Web Setup version?)")
+if 'class="jos-done-tip"' not in s:
+    s = re.sub(r'(<div id="containerOtaComplete" class="vec-container">\s*<p>.*?</p>)',
+               r'\1\n          <p class="jos-done-tip">Tip: on a phone on the same Wi-Fi, open '
+               r'<b>http://HIS-IP:8889/jamesos/</b> to change his settings.</p>', s, count=1, flags=re.S)
 if s != o: write(f, s); changed.append(f + " (welcome, credits, logo)")
 
 # --- when the OTA is done, show the JamesOS "installed" screen (DDL's goes back to pairing)
@@ -96,40 +105,108 @@ if "JAMESOS_LAN_IP" not in s:
     sys.exit("couldn't patch utils/ip.js (different Vector Web Setup version?)")
 if s != o: write(f, s); changed.append(f)
 
-# --- JamesOS colors: gold instead of DDL green
-css = """/* JamesOS Setup */
-/* status icons: gold when a step is done (DDL's were green) */
-.vec-icon-done { filter: brightness(0) saturate(100%) invert(76%) sepia(43%) saturate(708%) hue-rotate(358deg) brightness(93%) contrast(89%); }
-.vec-ui-footer-middle span:first-child { color: #999; }
-.vec-ui-footer-middle a, .jos-tip a { color: #e2b54a; }
-/* the old "Pair with Vector" button on the done screen does nothing - the next step is v.pvic.xyz */
+# --- JamesOS look: graphite and gold like the phone page (jamesos.css)
+css = """/* JamesOS Setup - graphite and gold, like the JamesOS phone page */
+@import url("https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600&display=swap");
+:root { --jos-bg:#16181B; --jos-panel:#202327; --jos-raised:#2A2E33; --jos-edge:#30343A;
+  --jos-text:#F3F1EC; --jos-muted:#A3A49F; --jos-faint:#74777A; --jos-gold:#F2B544; --jos-ink:#2B1A00; --jos-tint:rgba(242,181,68,.14); }
+body, .vec-panel-container { background: var(--jos-bg) !important; color: var(--jos-text);
+  font-family: Rubik, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif !important; -webkit-font-smoothing: antialiased; }
+a { color: var(--jos-gold); }
+:focus-visible { outline: 2px solid var(--jos-gold); outline-offset: 3px; }
+
+/* status icons at the top: small and quiet, gold when a step is done */
+.vec-status { gap: 6px; padding-top: 16px; }
+.vec-icon { width: 22px; margin: 4px 10px; }
+.vec-icon-done { filter: opacity(100%) brightness(0) saturate(100%) invert(76%) sepia(43%) saturate(708%) hue-rotate(358deg) brightness(97%) contrast(92%); }
+.vec-info-box { border: 1px solid var(--jos-edge) !important; background: var(--jos-panel) !important; border-radius: 999px; font-size: 13px; }
+
+/* the steps */
+#discoverFirstTime:not(.vec-hidden), #discoverReconnect:not(.vec-hidden) { display: flex; flex-direction: column; max-width: 600px;
+  margin: 0 auto 24px; background: var(--jos-panel); border-radius: 22px; overflow: hidden; }
+.vec-instruction { height: auto !important; align-items: center; gap: 18px; padding: 18px 20px; text-align: left; }
+.vec-instruction + .vec-instruction { border-top: 1px solid var(--jos-edge); }
+.vec-instruction > div { line-height: 1.5 !important; font-size: 16px; }
+.vec-card { width: 56px !important; padding: 0 !important; opacity: .85; flex-shrink: 0; }
+
+/* buttons and fields */
+.vec-btn, .vec-field[type="button"] { background: var(--jos-gold) !important; color: var(--jos-ink) !important; border: 0 !important;
+  border-radius: 999px !important; height: 50px !important; min-width: 240px; font-weight: 600; text-transform: none !important;
+  font-size: 16px; cursor: pointer; }
+.vec-btn:hover, .vec-field[type="button"]:hover { filter: brightness(1.06); color: var(--jos-ink) !important; border: 0 !important; }
+.vec-field { background: var(--jos-panel) !important; border: 1px solid var(--jos-edge) !important; border-radius: 14px !important;
+  height: 50px !important; color: var(--jos-text) !important; }
+.vec-field:focus { border-color: var(--jos-gold) !important; color: var(--jos-text) !important; }
+#txtPin { font-size: 22px; letter-spacing: .3em; text-align: center; }
+
+/* tip under PAIR WITH VECTOR */
+.jos-tip { margin: 20px auto 0; max-width: 34em; color: var(--jos-muted); font-size: 14px; text-align: center; line-height: 1.5; }
+.jos-tip b { color: var(--jos-text); font-weight: 500; }
+
+/* footer: one quiet line, no logos */
+.vec-ui-footer-side img { display: none; }
+.vec-ui-footer-middle span:first-child { color: var(--jos-faint); }
+.vec-ui-footer-middle a { color: var(--jos-muted); text-decoration: underline; }
+
+/* done screen */
 #containerOtaComplete #btnDiscoverVectorAgain { display: none; }
-#containerOtaComplete a { color: #e2b54a; text-decoration: underline; }
-.jos-tip { margin: 18px auto 0; max-width: 34em; color: #b9b3a3; font-size: 14px; text-align: center; }
-.jos-tip b { color: #e2b54a; }
-/* welcome + credits screens */
-.jos-overlay { position: fixed; inset: 0; z-index: 50; background: #000; display: flex; align-items: center; justify-content: center; padding: 24px 16px; overflow-y: auto; }
+#containerOtaComplete p { max-width: 34em; margin: 0 auto 10px; line-height: 1.55; }
+.jos-done-tip { color: var(--jos-muted); font-size: 14px; }
+
+/* welcome + credits */
+.jos-overlay { position: fixed; inset: 0; z-index: 50; background: var(--jos-bg); display: flex; justify-content: center;
+  padding: 0 24px 48px; overflow-y: auto; }
 .jos-hidden { display: none !important; }
-.jos-card { max-width: 560px; width: 100%; color: #eee; text-align: left; }
-.jos-card h1 { font-size: 34px; font-weight: 700; color: #e2b54a; margin: 6px 0 4px; letter-spacing: .02em; }
-.jos-logo { width: 72px; height: 72px; }
-.jos-lead { color: #cfc9b8; margin: 0 0 18px; }
-.jos-list, .jos-need { list-style: none; padding: 0; margin: 0 0 16px; display: grid; gap: 8px; }
-.jos-list li { padding-left: 14px; border-left: 2px solid #e2b54a; color: #ccc; }
-.jos-list b { display: block; color: #fff; }
-.jos-need-title { margin: 8px 0 6px; font-weight: 700; color: #fff; }
-.jos-need li { color: #ccc; padding-left: 14px; position: relative; }
-.jos-need li::before { content: ""; position: absolute; left: 0; top: .6em; width: 6px; height: 6px; border-radius: 50%; background: #e2b54a; }
-.jos-actions { display: flex; gap: 18px; align-items: center; margin-top: 18px; flex-wrap: wrap; }
-.jos-link { background: none; border: 0; color: #e2b54a; text-decoration: underline; cursor: pointer; font: inherit; padding: 0; }
-.jos-credits { display: grid; grid-template-columns: max-content 1fr; gap: 8px 16px; margin: 0; }
-.jos-credits dt { color: #e2b54a; font-weight: 700; }
-.jos-credits dd { margin: 0; color: #ccc; }
-.jos-credits a { color: #e2b54a; }
-@media (max-width: 560px) { .jos-credits { grid-template-columns: 1fr; } .jos-credits dd { margin-bottom: 6px; } }
+.jos-card { max-width: 640px; width: 100%; color: var(--jos-text); text-align: left; }
+.jos-card.jos-wide { max-width: 1040px; }
+.jos-top { display: flex; align-items: center; justify-content: space-between; height: 76px; margin-bottom: 40px; }
+.jos-word { font-size: 19px; font-weight: 600; letter-spacing: -.01em; }
+.jos-card h1 { font-size: 44px; line-height: 1.08; font-weight: 600; letter-spacing: -.025em; color: var(--jos-text); margin: 0 0 14px; max-width: 14em; }
+.jos-lead { color: var(--jos-muted); margin: 0 0 30px; font-size: 18px; line-height: 1.5; max-width: 30em; }
+.jos-hero { display: grid; grid-template-columns: 1.15fr 1fr; gap: 48px; align-items: center; }
+.jos-check { background: var(--jos-panel); border-radius: 22px; padding: 24px; }
+.jos-check-title { margin: 0 0 16px; font-weight: 500; font-size: 17px; }
+.jos-check ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 14px; }
+.jos-check li { display: flex; gap: 12px; align-items: flex-start; color: var(--jos-muted); font-size: 15px; line-height: 1.45; }
+.jos-check li b { color: var(--jos-text); font-weight: 500; }
+.jos-tick { width: 22px; height: 22px; border-radius: 50%; background: var(--jos-tint); flex-shrink: 0; position: relative; }
+.jos-tick::after { content: ""; position: absolute; left: 8px; top: 5px; width: 5px; height: 9px; border: solid var(--jos-gold); border-width: 0 2px 2px 0; transform: rotate(45deg); }
+.jos-primary { display: inline-block; min-width: 220px; height: 54px; padding: 0 36px; border: 0; border-radius: 27px; background: var(--jos-gold); color: var(--jos-ink);
+  font: inherit; font-size: 17px; font-weight: 600; cursor: pointer; }
+.jos-primary:hover { filter: brightness(1.06); }
+.jos-secondary { display: inline-block; min-width: 200px; height: 50px; margin-top: 24px; border: 1px solid var(--jos-edge); border-radius: 25px;
+  background: transparent; color: var(--jos-text); font: inherit; font-weight: 500; cursor: pointer; }
+.jos-small { margin: 16px 0 0; font-size: 14px; color: var(--jos-faint); }
+.jos-small a { color: var(--jos-muted); }
+.jos-link { background: none; border: 0; color: var(--jos-muted); cursor: pointer; font: inherit; font-size: 15px; padding: 8px 0; }
+.jos-link:hover { color: var(--jos-text); text-decoration: underline; }
+.jos-features { list-style: none; padding: 32px 0 0; margin: 56px 0 0; border-top: 1px solid var(--jos-edge);
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 28px; }
+.jos-features b { display: block; font-weight: 500; font-size: 16px; margin-bottom: 4px; }
+.jos-features span { color: var(--jos-muted); font-size: 14px; line-height: 1.45; }
+.jos-credits { margin: 0; background: var(--jos-panel); border-radius: 22px; overflow: hidden; }
+.jos-credits > div { display: grid; grid-template-columns: 190px 1fr; gap: 16px; padding: 16px 20px; border-top: 1px solid var(--jos-edge); }
+.jos-credits > div:first-child { border-top: 0; }
+.jos-credits dt { color: var(--jos-text); font-weight: 500; font-size: 15px; }
+.jos-credits dd { margin: 0; color: var(--jos-muted); font-size: 15px; line-height: 1.5; }
+@media (max-width: 860px) {
+  .jos-hero { grid-template-columns: 1fr; gap: 28px; }
+  .jos-features { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 560px) {
+  .jos-overlay { padding: 0 20px 40px; }
+  .jos-top { height: 64px; margin-bottom: 20px; }
+  .jos-card h1 { font-size: 34px; }
+  .jos-lead { font-size: 16px; }
+  .jos-primary, .jos-secondary { width: 100%; }
+  .jos-features { grid-template-columns: 1fr; gap: 18px; margin-top: 36px; }
+  .jos-credits > div { grid-template-columns: 1fr; gap: 4px; }
+  .vec-instruction { padding: 16px; }
+}
 """
 f = "site/css/vecSetup.css"; s = read(f); o = s
-s = s.replace("#4fed94", GOLD).replace("rgba(2, 23, 11, 0.9)", "rgba(26, 20, 6, 0.92)")
+s = s.replace("#4fed94", GOLD2).replace("#4ADE80", GOLD2).replace(GOLD, GOLD2)
+s = s.replace("rgba(2, 23, 11, 0.9)", "rgba(22, 24, 27, 0.94)").replace("rgba(26, 20, 6, 0.92)", "rgba(22, 24, 27, 0.94)").replace("rgba(6, 20, 12, 0.92)", "rgba(22, 24, 27, 0.94)")
 if s != o: write(f, s); changed.append(f)
 if not os.path.exists(p("site/css/jamesos.css")) or read("site/css/jamesos.css") != css:
     write("site/css/jamesos.css", css); changed.append("site/css/jamesos.css")
