@@ -10,7 +10,7 @@
 #   ./jamesos-host.sh test         check that the link works the way Vector needs it
 #
 # Auto-update (robots on JamesOS 108d or newer ask your server every hour):
-#   ./jamesos-host.sh release      give your newest OTA to every JamesOS robot automatically
+#   ./jamesos-host.sh release      give your newest OTA to every older JamesOS robot automatically
 #                                  (test it on your own robots FIRST with ./jamesos.sh ota-install)
 #   ./jamesos-host.sh pause        stop handing out updates right away (robots keep what they have)
 #   ./jamesos-host.sh resume       hand out the last released version again
@@ -29,6 +29,32 @@ need_host() {
   [[ "$H" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "No server yet. Run first:  ./jamesos-host.sh setup 128.199.x.x   (your droplet's real IPv4 from DigitalOcean)"; exit 1; }
 }
 rs() { ssh -o StrictHostKeyChecking=accept-new -o ConnectTimeout=10 "root@$H" "$@"; }
+
+# Runs on the server: every older JamesOS version gets VER. "Older" = every version released
+# before (released.txt) + every lower build number with the same start (3.0.2.100d..113d for
+# 3.0.2.114d), so nobody has to add versions by hand. Newer test builds are never touched.
+LINK_OLDER=$(cat <<'EOF2'
+set -e
+VER="$1"; W=/var/www/jamesos; V=$W/vic
+[ -f "$W/jamesos-$VER.ota" ] || { echo "jamesos-$VER.ota is not on the server"; exit 1; }
+mkdir -p "$V/diff"; touch "$V/released.txt"
+grep -qx "$VER" "$V/released.txt" || echo "$VER" >> "$V/released.txt"
+echo "$VER" > "$V/latest.txt"
+rm -f "$V"/diff/*.ota
+pre=$(echo "$VER" | sed -n 's/^\(.*\.\)\([0-9][0-9]*\)\([a-z]*\)$/\1/p')
+num=$(echo "$VER" | sed -n 's/^\(.*\.\)\([0-9][0-9]*\)\([a-z]*\)$/\2/p')
+suf=$(echo "$VER" | sed -n 's/^\(.*\.\)\([0-9][0-9]*\)\([a-z]*\)$/\3/p')
+{ cat "$V/released.txt"
+  if [ -n "$num" ]; then i=1; while [ "$i" -lt "$num" ]; do echo "$pre$i$suf"; i=$((i+1)); done; fi
+} | sort -u | while read -r old; do
+  [ -z "$old" ] && continue; [ "$old" = "$VER" ] && continue
+  ln -sfn "../../jamesos-$VER.ota" "$V/diff/$old.ota"
+done
+rm -f "$V/paused"
+n=$(ls "$V/diff" | wc -l)
+echo "   every older JamesOS version ($n of them) now gets $VER - no need to add versions by hand"
+EOF2
+)
 
 newest_ota() {
   local o; o=$(ls -t "$WOS"/_build/vicos-*.ota 2>/dev/null | head -1)
@@ -125,28 +151,8 @@ EOF
     upload
     VER=$(basename "$(newest_ota)" .ota); VER=${VER#vicos-}
     echo
-    echo "== Releasing $VER to every JamesOS robot =="
-    rs "bash -s '$VER'" <<'EOF2' || { echo "Release failed - send Claude a screenshot"; exit 1; }
-set -e
-VER="$1"; W=/var/www/jamesos; V=$W/vic
-mkdir -p "$V/diff"
-touch "$V/released.txt"
-# first time: every JamesOS version already on the server counts as released before
-if [ ! -s "$V/released.txt" ]; then
-  ls "$W"/jamesos-*.ota 2>/dev/null | sed 's#.*/jamesos-##; s#\.ota$##' > "$V/released.txt"
-fi
-grep -qx "$VER" "$V/released.txt" || echo "$VER" >> "$V/released.txt"
-echo "$VER" > "$V/latest.txt"
-rm -f "$V"/diff/*.ota
-n=0
-while read -r old; do
-  [ -z "$old" ] && continue
-  [ "$old" = "$VER" ] && continue
-  ln -sfn "../../jamesos-$VER.ota" "$V/diff/$old.ota"; n=$((n+1))
-done < "$V/released.txt"
-rm -f "$V/paused"
-echo "   robots on $n older version(s) will get $VER: $(grep -vx "$VER" "$V/released.txt" | tr '\n' ' ')"
-EOF2
+    echo "== Releasing $VER to every older JamesOS robot =="
+    rs "bash -s '$VER'" <<<"$LINK_OLDER" || { echo "Release failed - send Claude a screenshot"; exit 1; }
     echo
     echo "Done. Robots on the charger get $VER within about 1-2 hours, then restart at night (1-5 AM)."
     echo "Something wrong? ./jamesos-host.sh pause   stops it right away."
@@ -161,14 +167,13 @@ EOF2
     need_host
     VER=$(rs 'cat /var/www/jamesos/vic/latest.txt 2>/dev/null')
     [[ -n "$VER" ]] || { echo "Nothing was released yet. Use: ./jamesos-host.sh release"; exit 1; }
-    rs "cd /var/www/jamesos/vic && rm -f paused && while read -r old; do [ -n \"\$old\" ] && [ \"\$old\" != '$VER' ] && ln -sfn ../../jamesos-$VER.ota diff/\$old.ota; done < released.txt; echo resumed" \
-      && echo "Robots get $VER again."
+    rs "bash -s '$VER'" <<<"$LINK_OLDER" && echo "Robots get $VER again."
     ;;
   status)
     need_host
     rs 'V=/var/www/jamesos/vic
 echo "Released now: $(cat $V/latest.txt 2>/dev/null || echo none)$([ -f $V/paused ] && echo "  (PAUSED)")"
-echo "Older versions that get it: $(ls $V/diff 2>/dev/null | sed "s/\.ota$//" | tr "\n" " ")"
+echo "Older versions that get it: $(ls $V/diff 2>/dev/null | wc -l) (every JamesOS build before it)"
 echo
 echo "Robots that asked for updates (last 2 days, by version):"
 find /var/log/nginx -name "access.log*" -mtime -2 2>/dev/null | xargs -r zgrep -h "GET /vic/" 2>/dev/null \

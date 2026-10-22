@@ -78,7 +78,7 @@ set -e
 cd "$(dirname "$0")"
 
 # the JamesOS version name (shown on Vector's info screen as "OS: JamesOS v21")
-JAMESOS_RELEASE="v26"
+JAMESOS_RELEASE="v27"
 
 if [[ "$1" == "use" ]]; then
   # ./jamesos.sh use 1.0   (a name from ./jamesos.sh find)   or   ./jamesos.sh use 192.168.0.116
@@ -1046,6 +1046,11 @@ RECIPE
     else
       echo "   (couldn't find the OTA image list - auto-update stays blocked)"
     fi
+    # jamesos-version inside the OTA: ABOUT shows it, and after an auto-update Vector says
+    # "UPDATED! SEE WHAT'S NEW" once (the first line changes every build, so he knows it's new)
+    printf '%s\n%s\n' "$(date +%Y%m%d-%H%M%S)" "$JAMESOS_RELEASE" > "$VB/platform/config/etc/jamesos-version"
+    git -C "$VB" add -f platform/config/etc/jamesos-version
+    echo "   Version inside the OTA: JamesOS $JAMESOS_RELEASE"
     git -C "$VB" commit -qa -m "OTA: private off, JamesOS $JAMESOS_RELEASE boot animation + version" || true
     # the builder doesn't notice a changed picture inside rampost by itself: ask it to rebuild these
     echo "rampost vector-motd jamesos-keep" > "$WOS/wire-cleaning"
