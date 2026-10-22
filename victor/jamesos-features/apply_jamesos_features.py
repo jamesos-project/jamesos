@@ -844,4 +844,37 @@ print("[23] Holiday back lights: %d sets, they follow the theme live%s"
 print("[24] Rare things: shiny days (1 in 4096), blue moon nights" +
       ("; PRIVATE extras ON (Vector family, prototype)" if JAMESOS_PRIVATE else ""))
 
+# ------------------------------------------------------------------ [25] companion page on the robot (v28)
+# A phone on the same Wi-Fi opens http://<robot IP>:8889/jamesos/  - the page is a file in vic-anim's
+# web server folder, and two small handlers in vic-anim read and change the EXTRAS settings.
+ENGINE_CPP = "animProcess/src/cozmoAnim/animEngine.cpp"
+en = read(ENGINE_CPP)
+code = piece("companion_code.cpp.txt")
+begin, end = "// >>> JamesOS companion page (begin)", "// <<< JamesOS companion page (end)\n"
+if begin in en:
+    a = en.index(begin); b = en.index(end, a) + len(end)
+    en = en[:a] + code.rstrip("\n") + "\n" + en[b:]
+else:
+    inc = '#include "webServerProcess/src/webService.h"\n'
+    must_have(en, inc, ENGINE_CPP)
+    en = en.replace(inc, inc + '#include "cannedAnimLib/proceduralFace/proceduralFaceDrawer.h" // JamesOS companion page\n'
+                    '#include <sys/stat.h>\n#include <unistd.h>\n#include <cstdlib>\n#include <fstream>\n#include <string>\n#include <vector>\n', 1)
+    fn = "Result AnimEngine::Init()\n"
+    must_have(en, fn, ENGINE_CPP)
+    en = en.replace(fn, code.rstrip("\n") + "\n\n" + fn, 1)
+call = "  JamesCompanionStart(_context->GetWebService()); // JamesOS companion page\n"
+if call not in en:
+    start = "  FaceInfoScreenManager::getInstance()->Init(_context.get(), _animationStreamer.get());\n"
+    must_have(en, start, ENGINE_CPP)
+    en = en.replace(start, call + start, 1)
+write(ENGINE_CPP, en)
+page_src = os.path.join(HERE, "companion", "index.html")
+page_dst = "resources/webserver/jamesos/index.html"
+os.makedirs(os.path.dirname(page_dst), exist_ok=True)
+data = open(page_src, "rb").read()
+if not os.path.exists(page_dst) or open(page_dst, "rb").read() != data:
+    with open(page_dst, "wb") as f:
+        f.write(data)
+print("[25] Companion page: http://<robot IP>:8889/jamesos/  (Home + Customize)")
+
 print("\nAll done. Next: ./jamesos.sh go   (builds + deploys)")
