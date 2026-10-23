@@ -32,6 +32,7 @@
 #include "engine/components/visionScheduleMediator/visionScheduleMediator.h"
 #include "engine/cozmoContext.h"
 #include "engine/robot.h"
+#include "util/jamesos/jamesosPin.h" // JamesOS v31: phone page code
 #include "engine/externalInterface/externalInterface.h" // JamesOS explorer
 #include "clad/externalInterface/messageGameToEngine.h"
 #include "webServerProcess/src/webService.h"
@@ -105,7 +106,7 @@ void Reply(struct mg_connection* conn, int code, const std::string& type, const 
   mg_printf(conn,
             "HTTP/1.1 %d %s\r\nContent-Type: %s\r\nCache-Control: no-store\r\n"
             "Content-Length: %u\r\nConnection: close\r\n\r\n",
-            code, code == 200 ? "OK" : (code == 403 ? "Forbidden" : (code == 404 ? "Not Found" : "Bad Request")),
+            code, code == 200 ? "OK" : (code == 401 ? "Unauthorized" : (code == 403 ? "Forbidden" : (code == 404 ? "Not Found" : "Bad Request"))),
             type.c_str(), (unsigned)body.size());
   mg_write(conn, body.data(), body.size());
 }
@@ -131,6 +132,10 @@ int Handle(struct mg_connection* conn, void* /*cbdata*/)
   const std::string method = info->request_method ? info->request_method : "";
   const std::string uri = info->local_uri ? info->local_uri : "";
   const long long now = NowMs();
+  if (!jamesos::pin::Unlocked(mg_get_header(conn, "Cookie"))) {   // v31: needs the phone page code
+    Reply(conn, 401, "application/json", "{\"error\":\"locked\"}");
+    return 1;
+  }
 
   if (uri == "/jamesos/drive/frame" && method == "GET") {
     std::vector<u8> img;

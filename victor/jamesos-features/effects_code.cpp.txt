@@ -1229,6 +1229,18 @@ f32 ProceduralFaceDrawer::JamesMoodHue(f32 baseHue)
       }
       lastTheme = theme;
     }
+    // v31b: the phone page says what it just did: "own" = you picked an eye color (it wins over the
+    // theme right away), "theme" = you picked a theme (its color comes back)
+    {
+      static const char* kOwnReq = "/data/data/jamesos/own_eyes.request";
+      const std::string req = JamesReadWord(kOwnReq);
+      if (!req.empty()) {
+        std::remove(kOwnReq);
+        const bool own = (req == "own") && theme != (int)JamesTheme::Normal;
+        gJamesOwnEyes = own;
+        std::ofstream(kJamesOwnEyesFile) << (own ? "v2:" + std::to_string(theme) : std::string("none")) << "\n";
+      }
+    }
     moodOn = JamesFileExists(kJamesMoodOnFlag);
     targetShift = 0.f;
     if (moodOn) {

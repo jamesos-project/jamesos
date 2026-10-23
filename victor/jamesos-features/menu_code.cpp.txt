@@ -562,7 +562,9 @@
         drawList(ScreenName::JamesPhone, { {"NO WI-FI RIGHT NOW", 2}, {"CONNECT HIM FIRST", 3} });
         return;
       }
+      const jamesos::pin::Pin code = jamesos::pin::Ensure();   // v31
       drawList(ScreenName::JamesPhone, { {ip + ":8889", 1}, {"/JAMESOS", 1},
+                                         {code.own ? std::string("CODE: YOUR OWN") : "CODE " + (code.ok() ? code.code : std::string("----")), 1},
                                          {"PHONE ON " + (ssid.empty() ? std::string("HIS WI-FI") : ssid), 3} });
     };
     SET_ENTER_ACTION(JamesPhone, drawPhone);
@@ -572,6 +574,14 @@
     };
     GetScreen(ScreenName::JamesPhone)->AppendMenuItem("BACK", jamesSys);
     ADD_MENU_ITEM_WITH_ACTION(JamesPhone, "REFRESH", refreshPhone);
+    // v31: a new code AND a new key, so every phone has to type the code again
+    // (v31b: also the "forgot my own passcode" button - it goes back to a code shown here)
+    FaceInfoScreen::MenuItemAction newCode = [drawPhone]() {
+      jamesos::pin::Create();
+      drawPhone();
+      return ScreenName::JamesPhone;
+    };
+    ADD_MENU_ITEM_WITH_ACTION(JamesPhone, "NEW CODE", newCode);
 
     // ---- CONFIGURATION: system things (moved here so the main screen stays simple) ----
     ADD_MENU_ITEM(JamesConf, "EXIT", Main);

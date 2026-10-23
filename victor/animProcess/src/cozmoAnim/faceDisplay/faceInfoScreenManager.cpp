@@ -53,6 +53,7 @@
 #include "anki/cozmo/shared/factory/faultCodes.h"
 
 #include "webServerProcess/src/webService.h"
+#include "util/jamesos/jamesosPin.h" // JamesOS v31: phone page code
 
 #include <chrono>
 #include <fstream>
@@ -74,7 +75,7 @@ static std::string JamesOSName()  // JamesOS: real version from /anki/etc/jameso
   std::string id, label;
   std::getline(f, id);
   std::getline(f, label);
-  if (label.empty()) { return "JamesOS v30"; }
+  if (label.empty()) { return "JamesOS v31.1"; }
   return "JamesOS " + label + (id.compare(0, 5, "test-") == 0 ? " TEST" : "");
 }
 #define OSProject JamesOSName()  // JamesOS: read every time the screen is drawn (deploy writes it after he starts)
@@ -929,7 +930,9 @@ void FaceInfoScreenManager::Init(Anim::AnimContext* context, Anim::AnimationStre
         drawList(ScreenName::JamesPhone, { {"NO WI-FI RIGHT NOW", 2}, {"CONNECT HIM FIRST", 3} });
         return;
       }
+      const jamesos::pin::Pin code = jamesos::pin::Ensure();   // v31
       drawList(ScreenName::JamesPhone, { {ip + ":8889", 1}, {"/JAMESOS", 1},
+                                         {code.own ? std::string("CODE: YOUR OWN") : "CODE " + (code.ok() ? code.code : std::string("----")), 1},
                                          {"PHONE ON " + (ssid.empty() ? std::string("HIS WI-FI") : ssid), 3} });
     };
     SET_ENTER_ACTION(JamesPhone, drawPhone);
@@ -939,6 +942,14 @@ void FaceInfoScreenManager::Init(Anim::AnimContext* context, Anim::AnimationStre
     };
     GetScreen(ScreenName::JamesPhone)->AppendMenuItem("BACK", jamesSys);
     ADD_MENU_ITEM_WITH_ACTION(JamesPhone, "REFRESH", refreshPhone);
+    // v31: a new code AND a new key, so every phone has to type the code again
+    // (v31b: also the "forgot my own passcode" button - it goes back to a code shown here)
+    FaceInfoScreen::MenuItemAction newCode = [drawPhone]() {
+      jamesos::pin::Create();
+      drawPhone();
+      return ScreenName::JamesPhone;
+    };
+    ADD_MENU_ITEM_WITH_ACTION(JamesPhone, "NEW CODE", newCode);
 
     // ---- CONFIGURATION: system things (moved here so the main screen stays simple) ----
     ADD_MENU_ITEM(JamesConf, "EXIT", Main);
@@ -1034,7 +1045,7 @@ void FaceInfoScreenManager::Init(Anim::AnimContext* context, Anim::AnimationStre
       } else {
         build = "NOT PUBLISHED";
       }
-      std::string name = "JAMESOS " + (label.empty() ? std::string("V30") : label);
+      std::string name = "JAMESOS " + (label.empty() ? std::string("V31.1") : label);
       for (auto& ch : name) { if (ch >= 'a' && ch <= 'z') { ch = (char)(ch - 'a' + 'A'); } }
       const bool proto = ProceduralFaceDrawer::JamesIsPrototype();   // v23: James's PVT
       std::pair<std::string, int> last = proto ? std::pair<std::string, int>{"PVT PROTOTYPE", 4}

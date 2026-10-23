@@ -133,6 +133,34 @@ button.item:hover{background:var(--raised)}
 .sheet .box b{font-size:20px;font-weight:600}
 .sheet .box p{margin:0 0 8px;color:var(--muted)}
 .sheet .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+
+/* v31b: home rows with a button on the right */
+.split{display:flex;align-items:center;padding-right:16px}
+.split > button.item{flex:1}
+.dot{width:14px;height:14px;border-radius:50%;display:inline-block;vertical-align:-2px;margin-right:6px;border:1px solid rgba(255,255,255,.18)}
+.pill{flex-shrink:0;height:36px;padding:0 14px;border-radius:18px;border:0;background:var(--gold);color:var(--gold-ink);font-size:14px;font-weight:600}
+.pill.on{background:var(--raised);color:var(--text)}
+
+/* v31b: eye color */
+.eyes{display:flex;justify-content:center;gap:16%;padding:34px 0;background:#000;border-radius:var(--r-lg);margin:14px 0 4px}
+.eyes i{width:22%;aspect-ratio:1/1.05;border-radius:24%;background:var(--eye,#3CE6C4);box-shadow:0 0 28px -4px var(--eye,#3CE6C4);transition:background .25s,box-shadow .25s}
+.eyes.rainbow i{animation:rb 4s linear infinite}
+@keyframes rb{0%{filter:hue-rotate(0)}100%{filter:hue-rotate(360deg)}}
+.swatches{display:grid;grid-template-columns:repeat(auto-fill,minmax(64px,1fr));gap:12px;padding:16px}
+.sw{display:grid;justify-items:center;gap:6px;border:0;background:none;padding:0;color:var(--muted);font-size:12px;position:relative}
+.sw span{width:52px;height:52px;border-radius:50%;border:2px solid transparent;outline:3px solid transparent;outline-offset:2px}
+.sw[aria-pressed=true] span{outline-color:var(--gold)}
+.sw[aria-pressed=true]{color:var(--text)}
+.sw .x{position:absolute;top:-4px;right:2px;width:24px;height:24px;border-radius:50%;background:var(--bad);color:#2B0B08;font-size:16px;line-height:24px;font-weight:700}
+.sw.add span{display:grid;place-items:center;border:2px dashed var(--edge);color:var(--muted);font-size:26px}
+.rainbow-sw{background:conic-gradient(#ff4d4d,#ffd24d,#7dff4d,#4dffd2,#4d7dff,#d24dff,#ff4d4d)}
+.slider{display:grid;gap:8px;font-size:14px;color:var(--muted)}
+.slider input{-webkit-appearance:none;appearance:none;width:100%;height:28px;border-radius:14px;background:var(--track);outline-offset:3px}
+.slider input::-webkit-slider-thumb{-webkit-appearance:none;width:30px;height:30px;border-radius:50%;background:#fff;border:3px solid var(--graphite);box-shadow:0 1px 4px rgba(0,0,0,.5)}
+.slider input::-moz-range-thumb{width:26px;height:26px;border-radius:50%;background:#fff;border:3px solid var(--graphite)}
+.linkbtn{border:0;background:none;color:var(--gold);font-size:14px;font-weight:500;padding:4px}
+.check{display:flex;align-items:center;gap:10px;font-size:15px;color:var(--muted);margin:2px 0 4px}
+.check input{width:22px;height:22px;accent-color:var(--gold)}
 </style>
 </head>
 <body>
@@ -158,6 +186,14 @@ button.item:hover{background:var(--raised)}
         <span class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></svg></span>
         <span class="tx"><b>Customize</b><small>Eyes, stars, holidays, lights</small></span>
         <svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button></li>
+      <li><button class="item" type="button" data-go="eyes">
+        <span class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="7" width="7" height="10" rx="2.5"/><rect x="14" y="7" width="7" height="10" rx="2.5"/></svg></span>
+        <span class="tx"><b>Eye color</b><small id="ehint">His colors and your own</small></span>
+        <svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button></li>
+      <li><div class="split"><button class="item" type="button" data-go="sound">
+        <span class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M16.5 8.5a5 5 0 0 1 0 7"/></svg></span>
+        <span class="tx"><b>Sound</b><small id="vhint">How loud he is</small></span></button>
+        <button class="pill" type="button" id="muteBtn" hidden>Mute</button></div></li>
       <li><button class="item" type="button" data-go="utility">
         <span class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="9" width="18" height="12" rx="2"/><path d="M12 9v12M3 14h18M12 9c-2-4-6-4-6-1.5S10 9 12 9zm0 0c2-4 6-4 6-1.5S14 9 12 9z"/></svg></span>
         <span class="tx"><b>Birthday</b><small id="uhint">Not set</small></span>
@@ -170,9 +206,17 @@ button.item:hover{background:var(--raised)}
         <span class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M15.5 8.5l-2 5-5 2 2-5z"/></svg></span>
         <span class="tx"><b>Explore</b><small>See what he sees and drive him</small></span>
         <svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button></li>
+      <li><button class="item" type="button" id="photosBtn">
+        <span class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg></span>
+        <span class="tx"><b>Photos</b><small>Photos he took</small></span>
+        <svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button></li>
       <li><button class="item" type="button" data-go="badges">
         <span class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="9" r="6"/><path d="M8.5 14.2L7 22l5-3 5 3-1.5-7.8"/></svg></span>
         <span class="tx"><b>Badges</b><small id="bcount">See what he's unlocked</small></span>
+        <svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button></li>
+      <li><button class="item" type="button" data-go="passcode">
+        <span class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></span>
+        <span class="tx"><b>Passcode</b><small id="phint">Using the code on his screen</small></span>
         <svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button></li>
       <li><button class="item" type="button" data-go="news">
         <span class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l2.5 5 5.5.8-4 3.9.9 5.5L12 15.6 7.1 18.2l.9-5.5-4-3.9 5.5-.8z"/></svg></span>
@@ -255,6 +299,56 @@ button.item:hover{background:var(--raised)}
     <p class="intro" style="margin-top:14px">His robot name (<span id="nmhost">Vector-XXXX</span>) stays the same, so wire-pod, the app and the setup site still find him.</p>
   </main>
 
+  <!-- EYE COLOR (v31b) -->
+  <main id="page-eyes" hidden>
+    <div class="head"><button class="back" type="button" data-go="home" aria-label="Back"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></button><span>Home</span></div>
+    <h1 class="page-title">Eye color</h1>
+    <div class="eyes" id="eyePrev" aria-hidden="true"><i></i><i></i></div>
+    <p class="intro" id="enow">Tap a color and he changes to it.</p>
+    <h2 class="group-title">His colors</h2>
+    <div class="list"><div class="swatches" id="presetList" role="group" aria-label="His colors"></div></div>
+    <h2 class="group-title" style="display:flex;justify-content:space-between;align-items:baseline">Your colors <button class="linkbtn" type="button" id="myEdit" hidden>Edit</button></h2>
+    <div class="list"><div class="swatches" id="myList" role="group" aria-label="Your colors"></div></div>
+    <h2 class="group-title" id="makeTitle">Make a color</h2>
+    <div class="form" id="maker">
+      <label class="slider">Color<input id="hueIn" type="range" min="0" max="1000" value="420" aria-label="Color"></label>
+      <label class="slider">Strength<input id="satIn" type="range" min="0" max="1000" value="1000" aria-label="Strength"></label>
+      <div class="row2" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <button class="btn quiet" type="button" id="eyeTry">Try on him</button>
+        <button class="btn" type="button" id="eyeSave">Save color</button>
+      </div>
+    </div>
+    <p class="note">Holiday themes and mood colors change his eyes too. A color you pick here wins over a holiday theme. To get the theme's color back, pick the theme again in Customize.</p>
+  </main>
+
+  <!-- SOUND (v31b) -->
+  <main id="page-sound" hidden>
+    <div class="head"><button class="back" type="button" data-go="home" aria-label="Back"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></button><span>Home</span></div>
+    <h1 class="page-title">Sound</h1>
+    <p class="intro" id="snow">How loud he is. The same as the volume in the Vector app.</p>
+    <div class="list" style="margin-top:18px"><div class="setting">
+      <div class="lbl"><b>Volume</b><small id="sval"></small></div>
+      <div class="seg" id="volSeg" role="group" aria-label="Volume"></div>
+    </div></div>
+    <button class="btn" type="button" id="muteBig" style="width:100%;margin-top:16px">Mute him</button>
+    <p class="note">Muted, he makes no sounds at all, so you also won't hear him answer. Unmute puts back the volume he had.</p>
+  </main>
+
+  <!-- PASSCODE (v31b) -->
+  <main id="page-passcode" hidden>
+    <div class="head"><button class="back" type="button" data-go="home" aria-label="Back"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></button><span>Home</span></div>
+    <h1 class="page-title">Passcode</h1>
+    <p class="intro" id="pcnow">Right now this page uses the code on his screen.</p>
+    <div class="form" style="margin-top:18px">
+      <label class="field">New passcode (4 to 8 numbers)<input id="pc1" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="8" autocomplete="new-password"></label>
+      <label class="field">Type it again<input id="pc2" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="8" autocomplete="new-password"></label>
+      <button class="btn" type="button" id="pcSave">Set passcode</button>
+      <button class="btn quiet" type="button" id="pcOff" hidden>Use the code on his screen instead</button>
+    </div>
+    <p class="note" id="pcNote">With your own passcode, the whole page is locked until you type it, so you never need to walk to him. Every other phone has to type it too.</p>
+    <p class="note">Forgot it? On his screen: CONF &rarr; PHONE PAGE &rarr; NEW CODE. That turns your passcode off and shows a new code there.</p>
+  </main>
+
   <!-- BIRTHDAY -->
   <main id="page-utility" hidden>
     <div class="head"><button class="back" type="button" data-go="home" aria-label="Back"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></button><span>Home</span></div>
@@ -279,6 +373,18 @@ button.item:hover{background:var(--raised)}
     <p>His back lights load when he starts, so he restarts to change them. It takes about a minute.</p>
     <div class="row2"><button type="button" class="btn quiet" id="sheetNo">Cancel</button><button type="button" class="btn" id="sheetYes">Restart</button></div>
   </div>
+</div>
+
+<div class="sheet" id="codeSheet" role="dialog" aria-modal="true" aria-labelledby="codeTitle">
+  <form class="box" id="codeForm" autocomplete="off">
+    <b id="codeTitle">Enter Vector's code</b>
+    <p id="codeHelp">Open his menu and go to <b style="font-size:inherit;font-weight:600">CONF &rarr; PHONE PAGE</b>. This phone remembers it.</p>
+    <input id="codeIn" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="8" autocomplete="one-time-code" aria-label="Code"
+      style="height:60px;border-radius:14px;border:1px solid var(--edge);background:var(--graphite);color:var(--text);font-size:30px;letter-spacing:.5em;text-align:center;width:100%">
+    <label class="check" id="stayRow" hidden><input type="checkbox" id="stayIn" checked> Remember this phone</label>
+    <p id="codeErr" style="color:var(--bad);margin:0;min-height:22px;font-size:14px" aria-live="polite"></p>
+    <div class="row2"><button type="button" class="btn quiet" id="codeNo">Cancel</button><button type="submit" class="btn" id="codeYes">Unlock</button></div>
+  </form>
 </div>
 
 <script>
@@ -326,7 +432,9 @@ button.item:hover{background:var(--raised)}
   var LABEL = {};
   GROUPS.forEach(function (g) { g[1].forEach(function (r) { LABEL[r[0]] = r; }); });
 
-  var TITLES = {home: "JamesOS", customize: "Customize", badges: "Badges", news: "What's new", utility: "Birthday", name: "Nickname", wifi: "Wi-Fi"};
+  var TITLES = {home: "JamesOS", customize: "Customize", badges: "Badges", news: "What's new", utility: "Birthday", name: "Nickname", wifi: "Wi-Fi",
+    eyes: "Eye color", sound: "Sound", passcode: "Passcode"};
+  var ownCode = false;   // v31b: the owner picked a passcode (the whole page is locked without it)
   var MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
   function $(id) { return document.getElementById(id); }
@@ -351,10 +459,59 @@ button.item:hover{background:var(--raised)}
     if (ctl) { opts.signal = ctl.signal; setTimeout(function () { ctl.abort(); }, 6000); }
     return fetch(API + path, opts).then(function (r) {
       return r.json().catch(function () { return {}; }).then(function (j) {
+        if (r.status === 401 && j.error === "locked") {   // v31: ask for his code once, then do it again
+          return askCode().then(function () { return request(method, path, body); });
+        }
         if (!r.ok) { var e = new Error(j.error || ("error " + r.status)); e.server = true; throw e; }
         return j;
       });
     });
+  }
+
+  // ---- v31: the phone page code ----
+  var codeWait = null;
+  function askCode(lockScreen) {
+    if (codeWait) return codeWait.p;
+    var w = {}; w.p = new Promise(function (ok, no) { w.ok = ok; w.no = no; }); codeWait = w;
+    $("codeIn").value = ""; $("codeErr").textContent = "";
+    $("codeTitle").textContent = ownCode ? "Enter your passcode" : "Enter Vector's code";
+    if (ownCode) $("codeHelp").textContent = "Forgot it? On his screen: CONF \u2192 PHONE PAGE \u2192 NEW CODE.";
+    else $("codeHelp").innerHTML = 'Open his menu and go to <b style="font-size:inherit;font-weight:600">CONF &rarr; PHONE PAGE</b>. This phone remembers it.';
+    $("stayRow").hidden = !ownCode;
+    $("codeNo").hidden = !!lockScreen;
+    $("codeForm").querySelector(".row2").style.gridTemplateColumns = lockScreen ? "1fr" : "";
+    $("codeSheet").classList.add("show"); setTimeout(function () { $("codeIn").focus(); }, 50);
+    return w.p;
+  }
+  function codeDone(ok) {
+    var w = codeWait; codeWait = null; $("codeSheet").classList.remove("show");
+    if (!w) return;
+    if (ok) { if (state) state.unlocked = true; w.ok(); } else { var e = new Error("it needs his code"); e.cancel = true; e.server = true; w.no(e); }
+  }
+  $("codeNo").addEventListener("click", function () { codeDone(false); });
+  $("codeIn").addEventListener("input", function () { this.value = this.value.replace(/\D/g, "").slice(0, ownCode ? 8 : 4); $("codeErr").textContent = ""; });
+  $("codeForm").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var v = $("codeIn").value;
+    if (ownCode ? (v.length < 4 || v.length > 8) : v.length !== 4) { $("codeErr").textContent = ownCode ? "Your passcode has 4 to 8 numbers." : "The code has 4 numbers."; return; }
+    $("codeYes").disabled = true;
+    var stay = !ownCode || $("stayIn").checked;
+    fetch(API + "login", {method: "POST", cache: "no-store", headers: {"Content-Type": "text/plain", "X-JamesOS": "1"}, body: "pin=" + v + (stay ? "" : "&stay=0")})
+      .then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { return {r: r, j: j}; }); })
+      .then(function (x) {
+        $("codeYes").disabled = false;
+        if (x.r.ok) { toast("Unlocked"); codeDone(true); if (!state) { busy = false; refresh(); } return; }
+        $("codeIn").value = "";
+        $("codeErr").textContent = x.r.status === 429 ? "Too many tries. Wait " + (x.j.wait || 60) + " seconds."
+          : (ownCode ? "That's not your passcode." : "That's not his code. Check his screen.");
+      })
+      .catch(function () { $("codeYes").disabled = false; $("codeErr").textContent = "Can't reach your Vector."; });
+  });
+  // open Explore / Photos (his other web server); unlock first if needed
+  function openOther(page) {
+    var url = "http://" + location.hostname + ":8888/jamesos/" + page + ".html";
+    if (state && state.unlocked) { location.href = url; return; }
+    askCode().then(function () { location.href = url; }).catch(function () {});
   }
 
   function choices(key) {
@@ -424,14 +581,23 @@ button.item:hover{background:var(--raised)}
     $("uhint").textContent = s.birthday ? MONTHS[s.birthday.month - 1] + " " + s.birthday.day : "Not set";
     drawBirthday();
     drawName();
+    drawSoundEyes();
   }
 
   function draw() { drawHome(); drawGroups(); }
 
   function refresh() {
     if (busy || document.hidden) return Promise.resolve();
-    return request("GET", "state").then(function (s) { state = s; failures = 0; draw(); })
-      .catch(function () { failures++; drawHome(); });
+    return request("GET", "state").then(function (s) {
+      failures = 0;
+      ownCode = !!s.ownCode;
+      if (s.locked) {   // v31b: his own passcode locks the whole page, like a phone's lock screen
+        state = null; drawHome(); $("nettext").textContent = "Locked"; $("rstate").textContent = "Locked";
+        askCode(true).catch(function () {});
+        return;
+      }
+      state = s; draw();
+    }).catch(function () { failures++; drawHome(); });
   }
 
   function pick(key, value, name) {
@@ -474,6 +640,9 @@ button.item:hover{background:var(--raised)}
     if (page === "utility") { bdDirty = false; drawBirthday(); }
     if (page === "name") { nmDirty = false; drawName(); }
     if (page === "wifi") loadWifi();
+    if (page === "eyes") { myEditing = false; drawEyes(); }
+    if (page === "sound") drawSound();
+    if (page === "passcode") { $("pc1").value = ""; $("pc2").value = ""; drawPasscode(); }
     if (location.hash !== "#" + page) history.replaceState(null, "", "#" + page);
     window.scrollTo(0, 0);
   }
@@ -637,7 +806,10 @@ button.item:hover{background:var(--raised)}
     $("wadd").disabled = (w.travel || []).length >= (w.max || 6);
   }
   function loadWifi() {
-    request("GET", "wifi").then(drawWifi).catch(function () { $("wnow").textContent = "Can't reach your Vector."; });
+    request("GET", "wifi").then(drawWifi).catch(function (e) {
+      if (e && e.cancel) { go("home"); return; }
+      $("wnow").textContent = "Can't reach your Vector.";
+    });
   }
   function wifiSend(body, okMsg, done) {
     if (busy) return;
@@ -668,9 +840,217 @@ button.item:hover{background:var(--raised)}
     });
   });
 
-  // ---- explorer (v31): lives on his other web server (port 8888, next to the camera and wheels) ----
-  $("exploreBtn").addEventListener("click", function () { location.href = "http://" + location.hostname + ":8888/jamesos/explore.html"; });
+  // ---- v31b: eye color ----
+  // his 9 colors (the numbers are his own; hue and strength from his eye_color_config.json)
+  var PRESETS = [[0, "Teal", 0.42, 1], [4, "Sapphire", 0.57, 1], [5, "Purple", 0.83, 0.76], [8, "Red", 0.97, 0.98],
+    [1, "Orange", 0.05, 0.95], [2, "Yellow", 0.11, 1], [3, "Lime", 0.21, 1], [6, "Green", 0.30, 1], [7, "Rainbow", -1, 1]];
+  function hsv(h, s) {   // Vector's hue/saturation (brightness is always full) -> css color
+    var i = Math.floor(h * 6), f = h * 6 - i, p = 1 - s, q = 1 - f * s, t = 1 - (1 - f) * s, r, g, b;
+    switch (((i % 6) + 6) % 6) { case 0: r = 1; g = t; b = p; break; case 1: r = q; g = 1; b = p; break; case 2: r = p; g = 1; b = t; break;
+      case 3: r = p; g = q; b = 1; break; case 4: r = t; g = p; b = 1; break; default: r = 1; g = p; b = q; }
+    return "rgb(" + Math.round(r * 255) + "," + Math.round(g * 255) + "," + Math.round(b * 255) + ")";
+  }
+  function presetOf(n) { for (var i = 0; i < PRESETS.length; i++) if (PRESETS[i][0] === n) return PRESETS[i]; return null; }
+  function parseColor(c) { var a = String(c || "").split(","); return a.length === 2 ? [+a[0], +a[1]] : null; }
+  function colorKey(h, s) { return h.toFixed(3) + "," + s.toFixed(3); }
+  var myEditing = false, pendingEye = null, pendingTimer = null;
+  function eyeNow() {   // what he shows (or what we just asked for)
+    if (pendingEye) return pendingEye;
+    var e = state && state.eye;
+    if (!e || e.mode === "unknown") return null;
+    if (e.mode === "custom") { var c = parseColor(e.color); return c ? {custom: colorKey(c[0], c[1])} : null; }
+    return {preset: e.preset};
+  }
+  function showPreview(h, s, rainbow) {
+    var p = $("eyePrev"); p.classList.toggle("rainbow", !!rainbow);
+    p.style.setProperty("--eye", rainbow ? "#ff4d4d" : hsv(h, s));
+  }
+  function eyeLabel(now) {
+    if (!now) return "His colors and your own";
+    if (now.custom) return "Your own color";
+    var p = presetOf(now.preset); return p ? p[1] : "His colors and your own";
+  }
+  function drawEyes() {
+    var now = eyeNow();
+    var pl = $("presetList"); pl.textContent = "";
+    PRESETS.forEach(function (p) {
+      var b = el("button", "sw"); b.type = "button";
+      var dot = el("span", p[2] < 0 ? "rainbow-sw" : null); if (p[2] >= 0) dot.style.background = hsv(p[2], p[3]);
+      b.appendChild(dot); b.appendChild(document.createTextNode(p[1]));
+      b.setAttribute("aria-pressed", String(!!now && !now.custom && now.preset === p[0]));
+      b.disabled = !state || busy;
+      b.addEventListener("click", function () { setEye("preset:" + p[0], {preset: p[0]}, p[1]); });
+      pl.appendChild(b);
+    });
+    var my = (state && state.myColors) || [], ml = $("myList"); ml.textContent = "";
+    my.forEach(function (c) {
+      var hs = parseColor(c); if (!hs) return;
+      var b = el("button", "sw"); b.type = "button";
+      var dot = el("span"); dot.style.background = hsv(hs[0], hs[1]); b.appendChild(dot);
+      b.setAttribute("aria-label", myEditing ? "Remove this color" : "Your color");
+      b.setAttribute("aria-pressed", String(!myEditing && !!now && now.custom === c));
+      if (myEditing) b.appendChild(el("span", "x", "\u00d7"));
+      b.disabled = !state || busy;
+      b.addEventListener("click", function () {
+        if (myEditing) { saveList("eyedel=" + c, "Color removed"); return; }
+        $("hueIn").value = Math.round(hs[0] * 1000); $("satIn").value = Math.round(hs[1] * 1000); sliders();
+        setEye("custom:" + c, {custom: c}, "your color");
+      });
+      ml.appendChild(b);
+    });
+    if (!myEditing && my.length < 8) {
+      var add = el("button", "sw add"); add.type = "button"; add.appendChild(el("span", null, "+")); add.appendChild(document.createTextNode("New"));
+      add.addEventListener("click", function () { $("makeTitle").scrollIntoView({behavior: "smooth"}); });
+      ml.appendChild(add);
+    }
+    $("myEdit").hidden = !my.length; $("myEdit").textContent = myEditing ? "Done" : "Edit";
+    // preview: the slider color while making one, else what he has
+    if (now && now.custom) { var c2 = parseColor(now.custom); showPreview(c2[0], c2[1], false); }
+    else if (now && presetOf(now.preset)) { var p2 = presetOf(now.preset); showPreview(p2[2], p2[3], p2[2] < 0); }
+    $("enow").textContent = now ? "He has " + (now.custom ? "your own color" : eyeLabel(now)) + " now. Tap a color to change it."
+      : "Tap a color and he changes to it.";
+    $("eyeTry").disabled = $("eyeSave").disabled = !state || busy;
+  }
+  function sliders() {
+    var h = +$("hueIn").value / 1000, s = +$("satIn").value / 1000;
+    $("hueIn").style.setProperty("--track", "linear-gradient(90deg,#ff4d4d,#ffd24d,#7dff4d,#4dffd2,#4d7dff,#d24dff,#ff4d4d)");
+    $("satIn").style.setProperty("--track", "linear-gradient(90deg,#fff," + hsv(h, 1) + ")");
+    return [h, s];
+  }
+  ["hueIn", "satIn"].forEach(function (id) {
+    $(id).addEventListener("input", function () { var hs = sliders(); showPreview(hs[0], hs[1], false); });
+  });
+  sliders();
+  function setEye(value, now, name) {
+    if (!state || busy) return;
+    busy = true; pendingEye = now; drawEyes();
+    request("POST", "set", "eye=" + value).then(function (j) {
+      busy = false; if (j.state) state = j.state;
+      toast("Eyes: " + name + ". He shows it in a moment");
+      clearTimeout(pendingTimer); pendingTimer = setTimeout(function () { pendingEye = null; refresh(); }, 2500);
+      draw();
+    }).catch(function (e) {
+      busy = false; pendingEye = null; draw();
+      if (!e.cancel) toast(e.server ? "Not changed: " + e.message : "Not changed. Can't reach your Vector");
+    });
+  }
+  function saveList(body, okMsg, after) {
+    if (!state || busy) return;
+    busy = true;
+    request("POST", "set", body).then(function (j) {
+      busy = false; if (j.state) state = j.state;
+      if (!(state.myColors || []).length) myEditing = false;
+      draw(); toast(okMsg); if (after) after();
+    }).catch(function (e) {
+      busy = false; draw();
+      if (!e.cancel) toast(e.server ? "Not saved: " + e.message : "Not saved. Can't reach your Vector");
+    });
+  }
+  $("myEdit").addEventListener("click", function () { myEditing = !myEditing; drawEyes(); });
+  $("eyeTry").addEventListener("click", function () {
+    var hs = sliders(), c = colorKey(hs[0], hs[1]); setEye("custom:" + c, {custom: c}, "your color");
+  });
+  $("eyeSave").addEventListener("click", function () {
+    var hs = sliders(), c = colorKey(hs[0], hs[1]);
+    if ((state && state.myColors || []).indexOf(c) >= 0) { setEye("custom:" + c, {custom: c}, "your color"); return; }
+    saveList("eyesave=" + c, "Saved to your colors", function () { setEye("custom:" + c, {custom: c}, "your color"); });
+  });
 
+  // ---- v31b: sound ----
+  var VOL = ["Mute", "1", "2", "3", "4", "5"];
+  var VOLNAME = ["Muted", "Quiet", "Medium-low", "Medium", "Medium-high", "Loud"];
+  var pendingVol = null, volTimer = null;
+  function volNow() { return pendingVol != null ? pendingVol : (state && state.volume >= 0 ? state.volume : -1); }
+  function drawSound() {
+    var v = volNow(), seg = $("volSeg"); seg.textContent = "";
+    VOL.forEach(function (name, i) {
+      var b = el("button", null, name); b.type = "button";
+      b.setAttribute("aria-pressed", String(v === i)); b.setAttribute("aria-label", VOLNAME[i]);
+      b.disabled = !state || busy || v < 0;
+      b.addEventListener("click", function () { setVolume("volume=" + i, i); });
+      seg.appendChild(b);
+    });
+    $("sval").textContent = v >= 0 ? VOLNAME[v] : "";
+    $("snow").textContent = v < 0 ? "Waiting for him to say how loud he is…" : "How loud he is. The same as the volume in the Vector app.";
+    $("muteBig").textContent = v === 0 ? "Unmute him" : "Mute him";
+    $("muteBig").className = v === 0 ? "btn" : "btn quiet";
+    $("muteBig").disabled = !state || busy || v < 0;
+  }
+  function drawSoundEyes() {
+    var v = volNow(), mb = $("muteBtn");
+    $("vhint").textContent = v < 0 ? "How loud he is" : (v === 0 ? "Muted" : "Volume " + v + " of 5");
+    mb.hidden = v < 0; mb.textContent = v === 0 ? "Unmute" : "Mute"; mb.classList.toggle("on", v === 0);
+    mb.disabled = busy;
+    var now = eyeNow(), eh = $("ehint"); eh.textContent = "";
+    if (now) {
+      var d = el("span", "dot"), p = now.custom ? null : presetOf(now.preset);
+      if (now.custom) { var c = parseColor(now.custom); d.style.background = hsv(c[0], c[1]); }
+      else if (p) { if (p[2] < 0) d.className = "dot rainbow-sw"; else d.style.background = hsv(p[2], p[3]); }
+      eh.appendChild(d); eh.appendChild(document.createTextNode(eyeLabel(now)));
+    } else eh.textContent = "His colors and your own";
+    $("phint").textContent = state && state.ownCode ? "Your own passcode" : "Using the code on his screen";
+    if (!$("page-eyes").hidden) drawEyes();
+    if (!$("page-sound").hidden) drawSound();
+    if (!$("page-passcode").hidden) drawPasscode();
+  }
+  function setVolume(body, guess) {
+    if (!state || busy) return;
+    busy = true; pendingVol = guess >= 0 ? guess : null; drawSoundEyes();
+    request("POST", "set", body).then(function (j) {
+      busy = false; if (j.state) state = j.state;
+      toast(guess === 0 ? "Muted" : (body === "mute=off" ? "Sound back on" : "Volume " + guess));
+      clearTimeout(volTimer); volTimer = setTimeout(function () { pendingVol = null; refresh(); }, 1500);
+      draw();
+    }).catch(function (e) {
+      busy = false; pendingVol = null; draw();
+      if (!e.cancel) toast(e.server ? "Not changed: " + e.message : "Not changed. Can't reach your Vector");
+    });
+  }
+  function toggleMute() {
+    var v = volNow();
+    if (v === 0) setVolume("mute=off", -1); else setVolume("mute=on", 0);
+  }
+  $("muteBtn").addEventListener("click", toggleMute);
+  $("muteBig").addEventListener("click", toggleMute);
+
+  // ---- v31b: your own passcode ----
+  function drawPasscode() {
+    var own = !!(state && state.ownCode);
+    $("pcnow").textContent = own ? "This page uses your own passcode. You can change it here."
+      : "Right now this page uses the code on his screen. Pick your own and you can unlock it from anywhere.";
+    $("pcSave").textContent = own ? "Change passcode" : "Set passcode";
+    $("pcOff").hidden = !own;
+    $("pcSave").disabled = $("pcOff").disabled = !state || busy;
+  }
+  function passcode(body, okMsg) {
+    if (!state || busy) return;
+    busy = true; drawPasscode();
+    request("POST", "passcode", body).then(function (j) {
+      busy = false; $("pc1").value = ""; $("pc2").value = "";
+      if (state) state.ownCode = ownCode = !!j.ownCode;
+      toast(okMsg); draw(); refresh();
+    }).catch(function (e) {
+      busy = false; drawPasscode();
+      if (!e.cancel) toast(e.server ? "Not saved: " + e.message : "Not saved. Can't reach your Vector");
+    });
+  }
+  ["pc1", "pc2"].forEach(function (id) { $(id).addEventListener("input", function () { this.value = this.value.replace(/\D/g, "").slice(0, 8); }); });
+  $("pcSave").addEventListener("click", function () {
+    var a = $("pc1").value, b = $("pc2").value;
+    if (a.length < 4) { toast("Use 4 to 8 numbers"); return; }
+    if (a !== b) { toast("The two passcodes are different"); $("pc2").value = ""; $("pc2").focus(); return; }
+    if (/^(\d)\1+$/.test(a) || "0123456789".indexOf(a) >= 0 || "9876543210".indexOf(a) >= 0) { toast("Too easy to guess. Pick another one"); return; }
+    passcode("new=" + a, "Passcode set. Don't forget it!");
+  });
+  $("pcOff").addEventListener("click", function () { passcode("off", "Back to the code on his screen"); });
+
+  // ---- explorer (v31): lives on his other web server (port 8888, next to the camera and wheels) ----
+  $("exploreBtn").addEventListener("click", function () { openOther("explore"); });
+  $("photosBtn").addEventListener("click", function () { openOther("photos"); });
+
+  // coming back from Explore / Photos because this phone needs the code: #unlock-explore, #unlock-photos
+  var back = /^#unlock-(explore|photos)$/.exec(location.hash);
+  if (back) { history.replaceState(null, "", "#home"); openOther(back[1]); }
   go(location.hash.slice(1) || "home");
   draw(); refresh(); setInterval(refresh, 5000);
   document.addEventListener("visibilitychange", function () { if (!document.hidden) refresh(); });

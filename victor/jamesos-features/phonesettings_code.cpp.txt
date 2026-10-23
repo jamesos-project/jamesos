@@ -1,0 +1,132 @@
+    // >>> JamesOS phone settings (begin)
+    // v31b: eye color and volume from the phone page. The page runs in vic-anim, but these are his real
+    // settings (the same ones the Vector app changes), so vic-anim leaves a note in /dev/shm/jamesos_setreq:
+    //   "<id> volume N"            0 = mute .. 5 = loudest
+    //   "<id> eye preset N"        one of his 9 colors (7 = rainbow)
+    //   "<id> eye custom H S"      your own color: hue and saturation, 0..1
+    // Every new <id> is done once. What he has now goes to /dev/shm/jamesos_settings for the page.
+    void SettingsManager::JamesPhoneSettings()
+    {
+      static std::chrono::steady_clock::time_point next;
+      const auto now = std::chrono::steady_clock::now();
+      if (now < next)
+      {
+        return;
+      }
+      next = now + std::chrono::milliseconds(400);
+
+      static bool first = true;
+      static std::string lastReq;
+      std::string req;
+      {
+        std::ifstream in("/dev/shm/jamesos_setreq");
+        std::getline(in, req);
+      }
+      if (first)
+      {
+        first = false;
+        lastReq = req; // a note from before he (re)started was already done: don't do it again
+      }
+      else if (!req.empty() && req != lastReq &&
+               !(req.find(" eye ") != std::string::npos && IsSettingsUpdateRequestPending()))
+      {
+        // (v31.1: a new eye color waits while he is still showing the last one. Asking during his
+        // eye color animation made WireOS put the color number where his own color belongs = crash)
+        lastReq = req;
+        std::istringstream is(req);
+        std::string id, what;
+        is >> id >> what;
+        bool ignored = false;
+        if (what == "volume")
+        {
+          int v = -1;
+          if ((is >> v) && external_interface::Volume_IsValid(v))
+          {
+            SetRobotSetting(external_interface::RobotSetting::master_volume, Json::Value((Json::UInt)v), true, ignored);
+            LOG_INFO("SettingsManager.JamesPhone", "volume %d from the phone page", v);
+          }
+        }
+        else if (what == "eye")
+        {
+          static const std::string &eyeKey = RobotSetting_Name(external_interface::RobotSetting::eye_color);
+          static const std::string &customKey = RobotSetting_Name(external_interface::RobotSetting::custom_eye_color);
+          std::string mode;
+          is >> mode;
+          if (mode == "preset")
+          {
+            int n = -1;
+            if ((is >> n) && external_interface::EyeColor_IsValid(n))
+            {
+              if (!_currentSettings[customKey].isObject())
+              {
+                // repair: his own color must be {hue, saturation, enabled}
+                Json::Value fresh(Json::objectValue);
+                fresh[kCustomEyeColorHueKey] = 0.0;
+                fresh[kCustomEyeColorSaturationKey] = 0.0;
+                fresh[kCustomEyeColorEnabledKey] = false;
+                _currentSettings[customKey] = fresh;
+              }
+              if (_currentSettings[customKey][kCustomEyeColorEnabledKey].asBool())
+              {
+                // from your own color back to one of his: turning the custom color off shows the preset
+                _currentSettings[eyeKey] = Json::Value((Json::UInt)n);
+                Json::Value off = _currentSettings[customKey];
+                off[kCustomEyeColorEnabledKey] = false;
+                SetRobotSetting(external_interface::RobotSetting::custom_eye_color, off, true, ignored);
+              }
+              else
+              {
+                // not SetRobotEyeColorSetting: when it can't change eye_color it writes the color
+                // number into custom_eye_color, which breaks it
+                SetRobotSetting(external_interface::RobotSetting::eye_color, Json::Value((Json::UInt)n), true, ignored);
+              }
+              LOG_INFO("SettingsManager.JamesPhone", "eye color %d from the phone page", n);
+            }
+          }
+          else if (mode == "custom")
+          {
+            float h = -1.f, s = -1.f;
+            if ((is >> h >> s) && h >= 0.f && h <= 1.f && s >= 0.f && s <= 1.f)
+            {
+              Json::Value c;
+              c[kCustomEyeColorHueKey] = h;
+              c[kCustomEyeColorSaturationKey] = s;
+              c[kCustomEyeColorEnabledKey] = true;
+              SetRobotSetting(external_interface::RobotSetting::custom_eye_color, c, true, ignored);
+              LOG_INFO("SettingsManager.JamesPhone", "own eye color %.3f %.3f from the phone page", h, s);
+            }
+          }
+        }
+      }
+
+      // what he has now (only written when it changes)
+      static std::string lastState;
+      const std::string &volKey = RobotSetting_Name(external_interface::RobotSetting::master_volume);
+      const std::string &eyeKey2 = RobotSetting_Name(external_interface::RobotSetting::eye_color);
+      const std::string &customKey2 = RobotSetting_Name(external_interface::RobotSetting::custom_eye_color);
+      static const Json::Value kNoCustom(Json::objectValue);
+      const Json::Value &custom = _currentSettings[customKey2].isObject() ? _currentSettings[customKey2] : kNoCustom;
+      char buf[160];
+      std::snprintf(buf, sizeof(buf), "volume=%u\neyemode=%s\npreset=%u\nhue=%.3f\nsat=%.3f\n",
+                    _currentSettings[volKey].asUInt(),
+                    custom[kCustomEyeColorEnabledKey].asBool() ? "custom" : "preset",
+                    _currentSettings[eyeKey2].asUInt(),
+                    custom[kCustomEyeColorHueKey].asFloat(),
+                    custom[kCustomEyeColorSaturationKey].asFloat());
+      const std::string st(buf);
+      if (st != lastState)
+      {
+        const char *tmp = "/dev/shm/jamesos_settings.tmp";
+        {
+          std::ofstream out(tmp, std::ios::trunc);
+          out << st;
+        }
+        chmod(tmp, 0644);
+        if (std::rename(tmp, "/dev/shm/jamesos_settings") == 0)
+        {
+          lastState = st;
+        }
+      }
+    }
+    // <<< JamesOS phone settings (end)
+

@@ -1,0 +1,152 @@
+// >>> JamesOS photos (begin)
+// v31 Photos page: http://<robot IP>:8888/jamesos/photos.html shows /persistent/photos (photos.json + the jpgs)
+//   POST /jamesos/photos/delete  "ids=3,5,8"            delete these photos (also takes "id=N")
+//   POST /jamesos/photos/fav     "fav=N" | "unfav=N"    favorites, kept in favorites.txt next to the photos
+// Needs the X-JamesOS header, like the phone page. Runs on the engine thread (ProcessRequestExternal),
+// the same way /deleteallphotos does, so photos.json always stays right.
+namespace {
+bool JamesPhotosHostOk(const char* host)
+{
+  if (host == nullptr || host[0] == 0) { return false; }
+  std::string h(host);
+  const size_t colon = h.rfind(':');
+  if (colon != std::string::npos && h.find(']') == std::string::npos) { h = h.substr(0, colon); }
+  bool ip = !h.empty();
+  for (const char c : h) { if (!((c >= '0' && c <= '9') || c == '.')) { ip = false; } }
+  if (ip || h == "localhost") { return true; }
+  std::string low;
+  for (const char c : h) { low += (char)((c >= 'A' && c <= 'Z') ? c - 'A' + 'a' : c); }
+  return low.rfind("vector-", 0) == 0 || (low.size() > 6 && low.compare(low.size() - 6, 6, ".local") == 0);
+}
+
+// "3,5,8" -> {3,5,8}; false if anything else is in there
+bool JamesPhotosParseIds(const std::string& s, std::vector<int>& out)
+{
+  if (s.empty() || s.size() > 200 || s.find_first_not_of("0123456789,") != std::string::npos) { return false; }
+  size_t i = 0;
+  while (i <= s.size()) {
+    const size_t j = std::min(s.find(',', i), s.size());
+    if (j == i || j - i > 7) { return false; }
+    out.push_back(std::atoi(s.substr(i, j - i).c_str()));
+    i = j + 1;
+  }
+  return !out.empty() && out.size() <= 50;
+}
+
+std::string JamesFavFile(PhotographyManager* pm) { return pm->JamesPhotoDir() + "/favorites.txt"; }
+
+std::vector<int> JamesReadFavs(PhotographyManager* pm)
+{
+  std::vector<int> v;
+  std::ifstream in(JamesFavFile(pm));
+  int id = 0;
+  while (in >> id) { if (std::find(v.begin(), v.end(), id) == v.end()) { v.push_back(id); } }
+  return v;
+}
+
+void JamesWriteFavs(PhotographyManager* pm, const std::vector<int>& v)
+{
+  const std::string f = JamesFavFile(pm), tmp = f + ".tmp";
+  {
+    std::ofstream out(tmp, std::ios::trunc);
+    for (const int id : v) { out << id << "\n"; }
+  }
+  std::rename(tmp.c_str(), f.c_str());
+}
+
+int JamesPhotosImpl(WebService::WebService::Request* request)
+{
+  auto* pm = static_cast<PhotographyManager*>(request->_cbdata);
+  const std::string& what = request->_param1;
+  std::vector<int> ids;
+  if (!JamesPhotosParseIds(request->_param2, ids)) { request->_result = "bad"; return 1; }
+  std::vector<int> favs = JamesReadFavs(pm);
+  const size_t favCount = favs.size();
+  if (what == "delete") {
+    int n = 0;
+    for (const int id : ids) {
+      if (pm->JamesDeletePhoto(id)) { ++n; }
+      favs.erase(std::remove(favs.begin(), favs.end(), id), favs.end());
+    }
+    request->_result = "ok " + std::to_string(n);
+  } else if (what == "fav" || what == "unfav") {
+    for (const int id : ids) {
+      favs.erase(std::remove(favs.begin(), favs.end(), id), favs.end());
+      if (what == "fav") { favs.push_back(id); }
+    }
+    request->_result = "ok";
+  } else {
+    request->_result = "bad";
+    return 1;
+  }
+  if (favs.size() != favCount || what != "delete") { JamesWriteFavs(pm, favs); }
+  return 1;
+}
+
+int JamesPhotosHandler(struct mg_connection* conn, void* cbdata)
+{
+  const struct mg_request_info* info = mg_get_request_info(conn);
+  const char* host = mg_get_header(conn, "Host");
+  const char* mark = mg_get_header(conn, "X-JamesOS");
+  const char* origin = mg_get_header(conn, "Origin");
+  const std::string method = (info && info->request_method) ? info->request_method : "";
+  const std::string uri = (info && info->local_uri) ? info->local_uri : "";
+  if (info != nullptr && JamesPhotosHostOk(host) && !jamesos::pin::Unlocked(mg_get_header(conn, "Cookie"))) {
+    mg_printf(conn, "HTTP/1.1 401 Unauthorized\r\nContent-Type: text/plain\r\nContent-Length: 6\r\nConnection: close\r\n\r\nlocked");
+    return 1;
+  }
+  if (info == nullptr || !JamesPhotosHostOk(host) || method != "POST" ||
+      (uri != "/jamesos/photos/delete" && uri != "/jamesos/photos/fav") ||
+      mark == nullptr || std::string(mark) != "1" ||
+      (origin != nullptr && std::string(origin) != std::string("http://") + host)) {
+    mg_printf(conn, "HTTP/1.1 403 Forbidden\r\nContent-Type: text/plain\r\nContent-Length: 11\r\nConnection: close\r\n\r\nnot allowed");
+    return 1;
+  }
+  char buf[256] = {0};
+  int len = 0;
+  while (len < (int)sizeof(buf) - 1) {
+    const int rd = mg_read(conn, buf + len, sizeof(buf) - 1 - (size_t)len);
+    if (rd <= 0) { break; }
+    len += rd;
+  }
+  std::string body(buf, (size_t)len);
+  while (!body.empty() && (body.back() == '\n' || body.back() == '\r')) { body.pop_back(); }
+  const size_t eq = body.find('=');
+  const std::string key = eq == std::string::npos ? "" : body.substr(0, eq);
+  const std::string val = eq == std::string::npos ? "" : body.substr(eq + 1);
+  std::string what;
+  if (uri == "/jamesos/photos/delete" && (key == "ids" || key == "id")) { what = "delete"; }
+  if (uri == "/jamesos/photos/fav" && (key == "fav" || key == "unfav")) { what = key; }
+  std::vector<int> check;
+  if (what.empty() || !JamesPhotosParseIds(val, check)) {
+    mg_printf(conn, "HTTP/1.1 400 Bad Request\r\nContent-Type: text/plain\r\nContent-Length: 11\r\nConnection: close\r\n\r\nbad request");
+    return 1;
+  }
+  auto* pm = static_cast<PhotographyManager*>(cbdata);
+  return pm->GetRobot()->GetContext()->GetWebService()->ProcessRequestExternal(conn, cbdata, JamesPhotosImpl, what, val);
+}
+// v31: the photo files themselves (/persistent/photos/...) also need the code. vic-engine's web server would
+// otherwise show that folder to anyone; this handler is asked first.
+int JamesPhotoFilesHandler(struct mg_connection* conn, void* cbdata)
+{
+  const struct mg_request_info* info = mg_get_request_info(conn);
+  const char* host = mg_get_header(conn, "Host");
+  const std::string uri = (info && info->local_uri) ? info->local_uri : "";
+  const std::string prefix = "/persistent/photos/";
+  if (info == nullptr || !JamesPhotosHostOk(host) || !jamesos::pin::Unlocked(mg_get_header(conn, "Cookie"))) {
+    mg_printf(conn, "HTTP/1.1 401 Unauthorized\r\nContent-Type: text/plain\r\nContent-Length: 6\r\nConnection: close\r\n\r\nlocked");
+    return 1;
+  }
+  const std::string file = uri.size() > prefix.size() ? uri.substr(prefix.size()) : "";
+  const bool okName = !file.empty() && file.size() < 40 && file[0] != '.' &&
+                      file.find_first_not_of("abcdefghijklmnopqrstuvwxyz0123456789_.") == std::string::npos;
+  if (!okName) {
+    mg_printf(conn, "HTTP/1.1 404 Not Found\r\nContent-Type: text/plain\r\nContent-Length: 9\r\nConnection: close\r\n\r\nnot found");
+    return 1;
+  }
+  auto* pm = static_cast<PhotographyManager*>(cbdata);
+  mg_send_file(conn, (pm->JamesPhotoDir() + "/" + file).c_str());
+  return 1;
+}
+}  // namespace
+// <<< JamesOS photos (end)

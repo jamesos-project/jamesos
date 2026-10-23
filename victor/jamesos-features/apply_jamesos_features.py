@@ -1044,4 +1044,108 @@ if not os.path.exists(ex_dst) or open(ex_dst, "rb").read() != data:
         f.write(data)
 print("[28] Explorer: http://<robot IP>:8888/jamesos/explore.html  (camera + driving from the phone)")
 
+# ------------------------------------------------------------------ [29] Photos page (v31)
+# The photos he takes (voice: "take a photo") are in /persistent/photos, which vic-engine's web server already
+# shows. A small page lists them and can delete them (through PhotographyManager, so photos.json stays right).
+PHOTO_CPP = "engine/components/photographyManager.cpp"
+PHOTO_H = "engine/components/photographyManager.h"
+ph_code = piece("photos_code.cpp.txt")
+pc = read(PHOTO_CPP)
+b29, e29 = "// >>> JamesOS photos (begin)", "// <<< JamesOS photos (end)\n"
+if b29 in pc:
+    a = pc.index(b29); b = pc.index(e29, a) + len(e29)
+    pc = pc[:a] + ph_code.rstrip("\n") + "\n" + pc[b:]
+else:
+    anchor = "PhotographyManager::PhotographyManager()\n"
+    must_have(pc, anchor, PHOTO_CPP)
+    pc = pc.replace(anchor, ph_code.rstrip("\n") + "\n\n" + anchor, 1)
+    inc = '#include <sstream>\n'
+    must_have(pc, inc, PHOTO_CPP)
+    pc = pc.replace(inc, inc + '#include <cstdlib>  // JamesOS photos\n', 1)
+if "#include <fstream>  // JamesOS photos" not in pc:
+    inc = '#include <cstdlib>  // JamesOS photos\n'
+    must_have(pc, inc, PHOTO_CPP)
+    pc = pc.replace(inc, inc + '#include <fstream>  // JamesOS photos\n#include <algorithm>\n#include <vector>\n#include <cstdio>\n', 1)
+reg29 = '  webService->RegisterRequestHandler("/jamesos/photos/", JamesPhotosHandler, this); // JamesOS photos\n'
+if reg29 not in pc:
+    anchor = '  webService->RegisterRequestHandler("/deleteallphotos", DeleteAllPhotosWebServerHandler, this);\n'
+    must_have(pc, anchor, PHOTO_CPP)
+    pc = pc.replace(anchor, anchor + reg29, 1)
+write(PHOTO_CPP, pc)
+phh = read(PHOTO_H)
+if "JamesDeletePhoto" not in phh:
+    anchor = "  void DeleteAllPhotos();\n"
+    must_have(phh, anchor, PHOTO_H)
+    phh = phh.replace(anchor, anchor + "  bool JamesDeletePhoto(int id) { return DeletePhotoByID(id); } // JamesOS photos page\n", 1)
+    write(PHOTO_H, phh)
+if "JamesPhotoDir" not in phh:
+    anchor = "  bool JamesDeletePhoto(int id) { return DeletePhotoByID(id); } // JamesOS photos page\n"
+    must_have(phh, anchor, PHOTO_H)
+    phh = phh.replace(anchor, anchor + "  std::string JamesPhotoDir() const { return _savePath; } // JamesOS photos page\n", 1)
+    write(PHOTO_H, phh)
+pp_src = os.path.join(HERE, "companion", "photos.html")
+pp_dst = "resources/webserver/jamesos/photos.html"
+data = open(pp_src, "rb").read()
+if not os.path.exists(pp_dst) or open(pp_dst, "rb").read() != data:
+    with open(pp_dst, "wb") as f:
+        f.write(data)
+print("[29] Photos: http://<robot IP>:8888/jamesos/photos.html  (see, download and delete his photos)")
+
+# ------------------------------------------------------------------ [30] phone page code (v31)
+# The 4-digit code (util/jamesos/jamesosPin.h) is needed for changes, Wi-Fi, Explore and Photos.
+# Every file that checks it includes the header.
+PIN_INC = '#include "util/jamesos/jamesosPin.h" // JamesOS v31: phone page code\n'
+for path, anchor in ((ENGINE_CPP, '#include "webServerProcess/src/webService.h"\n'),
+                     (SDK_CPP, '#include "engine/robot.h"\n'),
+                     (PHOTO_CPP, '#include "engine/robot.h"\n'),
+                     (INFO_CPP, '#include "webServerProcess/src/webService.h"\n')):
+    t = read(path)
+    if PIN_INC not in t:
+        must_have(t, anchor, path)
+        t = t.replace(anchor, anchor + PIN_INC, 1)
+    if path == ENGINE_CPP and "#include <mutex>  // JamesOS v31" not in t:
+        t = t.replace(PIN_INC, PIN_INC + "#include <mutex>  // JamesOS v31\n#include <ctime>\n#include <algorithm>\n", 1)
+    write(path, t)
+pc30 = read(PHOTO_CPP)
+reg30 = '  webService->RegisterRequestHandler("/persistent/photos/", JamesPhotoFilesHandler, this); // JamesOS v31\n'
+if reg30 not in pc30:
+    anchor = '  webService->RegisterRequestHandler("/jamesos/photos/", JamesPhotosHandler, this); // JamesOS photos\n'
+    must_have(pc30, anchor, PHOTO_CPP)
+    write(PHOTO_CPP, pc30.replace(anchor, anchor + reg30, 1))
+print("[30] Phone page code: changes, Wi-Fi, Explore and Photos need the code from CONF -> PHONE PAGE")
+
+# ------------------------------------------------------------------ [31] eye color + volume from the phone (v31b)
+# The phone page (vic-anim) leaves a note in /dev/shm; SettingsManager (vic-engine) does it with his real settings.
+SET_CPP = "engine/components/settingsManager.cpp"
+SET_H = "engine/components/settingsManager.h"
+ps_code = piece("phonesettings_code.cpp.txt")
+sc = read(SET_CPP)
+b31, e31 = "    // >>> JamesOS phone settings (begin)", "    // <<< JamesOS phone settings (end)\n"
+if b31 in sc:
+    a = sc.index(b31); b = sc.index(e31, a) + len(e31)
+    sc = sc[:a] + ps_code.rstrip("\n") + "\n" + sc[b:]
+else:
+    anchor = "    // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -\n    SettingsManager::SettingsManager()\n"
+    must_have(sc, anchor, SET_CPP)
+    sc = sc.replace(anchor, ps_code + anchor, 1)
+inc31 = "#include <fstream>  // JamesOS v31b phone settings\n#include <sstream>\n#include <cstdio>\n#include <sys/stat.h>\n"
+if inc31 not in sc:
+    anchor = "#include <sys/wait.h>\n"
+    must_have(sc, anchor, SET_CPP)
+    sc = sc.replace(anchor, anchor + inc31, 1)
+call31 = "      JamesPhoneSettings(); // JamesOS v31b: eye color + volume from the phone page\n"
+if call31 not in sc:
+    anchor = "    void SettingsManager::UpdateDependent(const RobotCompMap &dependentComps)\n    {\n"
+    must_have(sc, anchor, SET_CPP)
+    sc = sc.replace(anchor, anchor + call31, 1)
+write(SET_CPP, sc)
+sh = read(SET_H)
+mem31 = "  void JamesPhoneSettings(); // JamesOS v31b: eye color + volume from the phone page\n"
+if mem31 not in sh:
+    anchor = "  bool ApplySettingMasterVolume();\n"
+    must_have(sh, anchor, SET_H)
+    sh = sh.replace(anchor, mem31 + anchor, 1)
+    write(SET_H, sh)
+print("[31] Eye color + volume from the phone page")
+
 print("\nAll done. Next: ./jamesos.sh go   (builds + deploys)")

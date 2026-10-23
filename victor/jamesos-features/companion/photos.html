@@ -1,0 +1,274 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#16181B">
+<title>Photos - JamesOS</title>
+<style>
+:root{--graphite:#16181B;--panel:#1F2226;--raised:#2A2E33;--edge:#30343A;--text:#F2F1EE;--muted:#A9A7A1;--faint:#75736E;
+  --gold:#F2B544;--gold-ink:#231A06;--bad:#F28B82;--r-lg:20px;--r-md:14px}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+[hidden]{display:none!important}
+html,body{margin:0;background:var(--graphite);color:var(--text);font:16px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.app{max-width:720px;margin:0 auto;padding:0 16px calc(96px + env(safe-area-inset-bottom))}
+.top{display:flex;align-items:center;justify-content:space-between;height:60px;gap:12px}
+.top a,.top button{color:var(--muted);text-decoration:none;font:inherit;font-size:15px;padding:8px 0;background:none;border:0;cursor:pointer}
+.top .sel{color:var(--gold);font-weight:500}
+h1{margin:4px 0 4px;font-size:30px;font-weight:600;letter-spacing:-.02em}
+.intro{margin:0 0 6px;color:var(--muted);font-size:15px}
+.tabs{display:flex;background:var(--panel);border-radius:12px;padding:3px;margin:14px 0 4px}
+.tabs button{flex:1;height:36px;border:0;border-radius:9px;background:none;color:var(--muted);font:inherit;font-size:14px;cursor:pointer}
+.tabs button.on{background:var(--raised);color:var(--text)}
+.day{margin:20px 2px 8px;font-size:15px;font-weight:500;color:var(--muted)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:6px}
+.tile{position:relative;aspect-ratio:4/3;border:0;padding:0;border-radius:10px;overflow:hidden;background:var(--panel);cursor:pointer}
+.tile img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .12s}
+.tile .heart{position:absolute;left:6px;bottom:5px;color:#fff;filter:drop-shadow(0 1px 2px rgba(0,0,0,.6))}
+.tile .tick{position:absolute;right:6px;top:6px;width:24px;height:24px;border-radius:50%;border:2px solid #fff;background:rgba(0,0,0,.25)}
+.tile.picked img{transform:scale(.9);border-radius:8px}
+.tile.picked .tick{background:var(--gold);border-color:var(--gold)}
+.tile.picked .tick::after{content:"";position:absolute;left:7px;top:3px;width:5px;height:10px;border:solid var(--gold-ink);border-width:0 2px 2px 0;transform:rotate(45deg)}
+.empty{background:var(--panel);border-radius:var(--r-lg);padding:28px 20px;text-align:center;color:var(--muted);margin-top:16px}
+.empty b{display:block;color:var(--text);font-weight:500;margin-bottom:6px}
+.selbar{position:fixed;left:0;right:0;bottom:0;background:var(--panel);border-top:1px solid var(--edge);padding:12px 16px calc(12px + env(safe-area-inset-bottom));z-index:4}
+.selbar .in{max-width:720px;margin:0 auto;display:flex;align-items:center;gap:10px}
+.selbar span{flex:1;color:var(--muted);font-size:15px;white-space:nowrap}
+.pill{height:42px;padding:0 14px;white-space:nowrap;border-radius:21px;border:1px solid var(--edge);background:none;color:var(--text);font:inherit;font-size:15px;cursor:pointer}
+.pill.red{border:0;background:#3A1F1E;color:var(--bad)}
+.pill:disabled{opacity:.4;cursor:default}
+.view{position:fixed;inset:0;background:#0B0C0D;display:none;flex-direction:column;z-index:5}
+.view.show{display:flex}
+.view .bar{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;padding-top:calc(12px + env(safe-area-inset-top))}
+.view .bar button{background:none;border:0;color:var(--text);font:inherit;font-size:16px;padding:8px;cursor:pointer}
+.view .pic{flex:1;display:flex;align-items:center;justify-content:center;padding:0 12px;min-height:0;position:relative;touch-action:pan-y}
+.view .pic img{max-width:100%;max-height:100%;border-radius:10px;user-select:none;-webkit-user-drag:none}
+.nav{position:absolute;top:50%;transform:translateY(-50%);width:44px;height:44px;border-radius:50%;border:0;background:rgba(255,255,255,.08);color:var(--text);font-size:22px;cursor:pointer}
+.nav.l{left:8px}.nav.r{right:8px}
+.view .when{text-align:center;color:var(--muted);font-size:14px;margin:10px 0 0}
+.view .acts{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;padding:16px;padding-bottom:calc(16px + env(safe-area-inset-bottom));max-width:560px;width:100%;margin:0 auto}
+.act{height:56px;border-radius:16px;border:0;background:var(--panel);color:var(--text);font:inherit;font-size:13px;display:grid;place-items:center;gap:2px;text-decoration:none;cursor:pointer;padding:6px}
+.act svg{width:22px;height:22px}
+.act.fav{color:var(--gold)}
+.act.del{color:var(--bad)}
+.sheet{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:flex-end;justify-content:center;z-index:6}
+.sheet.show{display:flex}
+.sheet .box{background:var(--panel);border-radius:24px 24px 0 0;padding:24px 20px calc(20px + env(safe-area-inset-bottom));width:100%;max-width:560px;display:grid;gap:10px}
+.sheet .box b{font-size:20px;font-weight:600}
+.sheet .box p{margin:0 0 8px;color:var(--muted)}
+.sheet .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.sheet .row2 button{height:50px;border-radius:25px;font:inherit;font-weight:600;cursor:pointer}
+.no{background:none;border:1px solid var(--edge);color:var(--text)}
+.yes{background:var(--bad);border:0;color:#2A0E0C}
+.toast{position:fixed;left:50%;bottom:calc(84px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--text);color:var(--graphite);padding:12px 18px;border-radius:24px;font-size:15px;opacity:0;pointer-events:none;transition:opacity .2s;z-index:7;white-space:nowrap}
+.toast.show{opacity:1}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top"><a href="#" id="home">‹ JamesOS</a><span style="flex:1"></span><button type="button" id="reload">Refresh</button><button type="button" id="selBtn" class="sel">Select</button></header>
+  <h1>Photos</h1>
+  <p class="intro" id="intro">Say "Hey Vector, take a photo" and it shows up here.</p>
+  <div class="tabs" id="tabs"><button type="button" data-t="all" class="on">All</button><button type="button" data-t="fav">Favorites</button></div>
+  <div id="list"></div>
+  <div class="empty" id="empty" hidden><b id="emptyT">No photos yet</b><span id="emptyS">Say "Hey Vector, take a photo", then tap Refresh.</span></div>
+</div>
+
+<div class="selbar" id="selbar" hidden>
+  <div class="in">
+    <span id="selCount">Select photos</span>
+    <button class="pill" type="button" id="selFav" disabled>♥</button>
+    <button class="pill" type="button" id="selDl" disabled>Download</button>
+    <button class="pill red" type="button" id="selDel" disabled>Delete</button>
+  </div>
+</div>
+
+<div class="view" id="view" role="dialog" aria-modal="true" aria-label="Photo">
+  <div class="bar"><button type="button" id="close">‹ Back</button><span id="count" style="color:var(--muted);font-size:14px"></span><span style="width:60px"></span></div>
+  <div class="pic" id="pic"><img id="big" alt="Photo he took"><button class="nav l" type="button" id="prev" aria-label="Previous">‹</button><button class="nav r" type="button" id="next" aria-label="Next">›</button></div>
+  <p class="when" id="when"></p>
+  <div class="acts">
+    <button class="act fav" type="button" id="favBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path id="favPath" d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/></svg><span id="favLbl">Favorite</span></button>
+    <a class="act" id="dl" download><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>Download</a>
+    <button class="act del" type="button" id="del"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 7h14M10 7V4h4v3M7 7l1 13h8l1-13"/></svg>Delete</button>
+  </div>
+</div>
+
+<div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+  <div class="box">
+    <b id="sheetTitle">Delete this photo?</b>
+    <p id="sheetText">It's removed from Vector. Download it first if you want to keep it.</p>
+    <div class="row2"><button type="button" class="no" id="sheetNo">Cancel</button><button type="button" class="yes" id="sheetYes">Delete</button></div>
+  </div>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(function () {
+  "use strict";
+  var DIR = "/persistent/photos/", MAX = 20;
+  function $(id) { return document.getElementById(id); }
+  var photos = [], favs = {}, shown = [], cur = -1, tab = "all", selecting = false, picked = {}, toastT;
+  $("home").href = "http://" + location.hostname + ":8889/jamesos/";
+
+  function toast(m) { var t = $("toast"); t.textContent = m; t.classList.add("show"); clearTimeout(toastT); toastT = setTimeout(function () { t.classList.remove("show"); }, 2600); }
+  function name(id) { var s = String(id); while (s.length < 6) s = "0" + s; return "photo_" + s; }
+  function date(ts) { var d = new Date((ts || 0) * 1000); return d.getFullYear() < 2019 ? null : d; }
+  function dayLabel(d) {
+    if (!d) return "Earlier";
+    var t = new Date(); t.setHours(0, 0, 0, 0);
+    var x = new Date(d); x.setHours(0, 0, 0, 0);
+    var diff = Math.round((t - x) / 86400000);
+    if (diff === 0) return "Today";
+    if (diff === 1) return "Yesterday";
+    return d.toLocaleDateString(undefined, {weekday: diff < 7 ? "long" : undefined, day: "numeric", month: "long", year: d.getFullYear() === t.getFullYear() ? undefined : "numeric"});
+  }
+  function when(ts) {
+    var d = date(ts); if (!d) return "";
+    return dayLabel(d) + ", " + d.toLocaleTimeString(undefined, {hour: "numeric", minute: "2-digit"});
+  }
+
+  function load() {
+    var a = fetch(DIR + "photos.json", {cache: "no-store"}).then(function (r) {
+      if (r.status === 401) { location.href = "http://" + location.hostname + ":8889/jamesos/#unlock-photos"; throw new Error("locked"); }   // v31
+      if (r.status === 404) return {PhotoInfos: []};
+      if (!r.ok) throw new Error(); return r.json();
+    });
+    var b = fetch(DIR + "favorites.txt", {cache: "no-store"}).then(function (r) { return r.ok ? r.text() : ""; }).catch(function () { return ""; });
+    Promise.all([a, b]).then(function (res) {
+      photos = (res[0].PhotoInfos || []).slice().sort(function (x, y) { return (y.TimeStamp || 0) - (x.TimeStamp || 0) || y.ID - x.ID; });
+      favs = {}; res[1].split(/\s+/).forEach(function (s) { if (s) favs[+s] = true; });
+      var ids = {}; photos.forEach(function (p) { ids[p.ID] = true; });
+      Object.keys(picked).forEach(function (k) { if (!ids[k]) delete picked[k]; });
+      draw();
+    }).catch(function () { $("intro").textContent = "Can't reach your Vector. Is this phone on his Wi-Fi?"; });
+  }
+
+  function draw() {
+    shown = photos.filter(function (p) { return tab === "all" || favs[p.ID]; });
+    var list = $("list"); list.textContent = "";
+    var grid = null, lastDay = null;
+    shown.forEach(function (p, i) {
+      var lbl = dayLabel(date(p.TimeStamp));
+      if (lbl !== lastDay) {
+        var h = document.createElement("h2"); h.className = "day"; h.textContent = lbl; list.appendChild(h);
+        grid = document.createElement("div"); grid.className = "grid"; list.appendChild(grid); lastDay = lbl;
+      }
+      var b = document.createElement("button"); b.type = "button"; b.className = "tile" + (picked[p.ID] ? " picked" : "");
+      b.setAttribute("aria-label", "Photo, " + when(p.TimeStamp) + (favs[p.ID] ? ", favorite" : ""));
+      var im = document.createElement("img"); im.loading = "lazy"; im.alt = ""; im.src = DIR + name(p.ID) + ".thm.jpg"; b.appendChild(im);
+      if (favs[p.ID]) { var hh = document.createElement("span"); hh.className = "heart"; hh.textContent = "♥"; b.appendChild(hh); }
+      if (selecting) { var tk = document.createElement("span"); tk.className = "tick"; b.appendChild(tk); }
+      b.addEventListener("click", function () {
+        if (selecting) { if (picked[p.ID]) delete picked[p.ID]; else picked[p.ID] = true; draw(); } else open(i);
+      });
+      grid.appendChild(b);
+    });
+    var nf = photos.filter(function (p) { return favs[p.ID]; }).length;
+    $("intro").textContent = photos.length ? photos.length + " of " + MAX + " photos" + (nf ? " · " + nf + " favorite" + (nf === 1 ? "" : "s") : "") +
+      (photos.length >= MAX ? ". Full: delete some so he can take new ones." : photos.length >= MAX - 2 ? ". Almost full." : "") : "Say \"Hey Vector, take a photo\" and it shows up here.";
+    $("empty").hidden = shown.length > 0;
+    $("emptyT").textContent = tab === "fav" && photos.length ? "No favorites yet" : "No photos yet";
+    $("emptyS").textContent = tab === "fav" && photos.length ? "Open a photo and tap Favorite to keep it here." : "Say \"Hey Vector, take a photo\", then tap Refresh.";
+    $("selBtn").hidden = photos.length === 0;
+    $("selBtn").textContent = selecting ? "Done" : "Select";
+    $("selbar").hidden = !selecting;
+    var n = Object.keys(picked).length;
+    $("selCount").textContent = n ? n + " selected" : "Select photos";
+    ["selFav", "selDl", "selDel"].forEach(function (id) { $(id).disabled = !n; });
+    var allFav = n && Object.keys(picked).every(function (k) { return favs[k]; });
+    $("selFav").textContent = allFav ? "♡" : "♥";
+    $("selFav").setAttribute("aria-label", allFav ? "Remove from Favorites" : "Add to Favorites");
+  }
+
+  function open(i) {
+    cur = i; var p = shown[i], f = name(p.ID) + ".jpg";
+    $("big").src = DIR + f; $("dl").href = DIR + f; $("dl").setAttribute("download", "vector-" + f);
+    $("when").textContent = when(p.TimeStamp); $("count").textContent = (i + 1) + " of " + shown.length;
+    $("prev").hidden = i === 0; $("next").hidden = i === shown.length - 1;
+    $("favLbl").textContent = favs[p.ID] ? "Favorite ✓" : "Favorite";
+    $("favPath").setAttribute("fill", favs[p.ID] ? "currentColor" : "none");
+    $("view").classList.add("show");
+  }
+  function closeView() { $("view").classList.remove("show"); cur = -1; }
+
+  function post(path, body) {
+    return fetch("/jamesos/photos/" + path, {method: "POST", cache: "no-store", headers: {"Content-Type": "text/plain", "X-JamesOS": "1"}, body: body})
+      .then(function (r) {
+        if (r.status === 401) { location.href = "http://" + location.hostname + ":8889/jamesos/#unlock-photos"; throw new Error("locked"); }
+        if (!r.ok) throw new Error(); return r.text();
+      })
+      .then(function (t) { if (t.indexOf("ok") < 0) throw new Error(); return t; });
+  }
+  function ask(title, text, yes) {
+    $("sheetTitle").textContent = title; $("sheetText").textContent = text; $("sheet").classList.add("show");
+    $("sheetNo").onclick = function () { $("sheet").classList.remove("show"); };
+    $("sheetYes").onclick = function () { $("sheet").classList.remove("show"); yes(); };
+  }
+  function deleteIds(ids, msg) {
+    post("delete", "ids=" + ids.join(",")).then(function () {
+      toast(msg); ids.forEach(function (id) { delete picked[id]; });
+      if (selecting && !Object.keys(picked).length) selecting = false;
+      closeView(); load();
+    }).catch(function () { toast("Couldn't delete. Try again."); });
+  }
+  function setFav(ids, on) {
+    return post("fav", (on ? "fav=" : "unfav=") + ids.join(",")).then(function () {
+      ids.forEach(function (id) { if (on) favs[id] = true; else delete favs[id]; });
+      toast(on ? (ids.length > 1 ? "Added to Favorites" : "Added to Favorites") : "Removed from Favorites");
+      draw(); if (cur >= 0) { var id = shown[cur] && shown[cur].ID; var i = shown.findIndex(function (p) { return p.ID === id; }); if (i >= 0) open(i); else closeView(); }
+    }).catch(function () { toast("Couldn't save. Try again."); });
+  }
+
+  $("reload").addEventListener("click", load);
+  $("selBtn").addEventListener("click", function () { selecting = !selecting; picked = {}; draw(); });
+  document.querySelectorAll("#tabs button").forEach(function (b) {
+    b.addEventListener("click", function () {
+      tab = b.getAttribute("data-t");
+      document.querySelectorAll("#tabs button").forEach(function (x) { x.classList.toggle("on", x === b); });
+      draw();
+    });
+  });
+  $("selDel").addEventListener("click", function () {
+    var ids = Object.keys(picked).map(Number), nf = ids.filter(function (id) { return favs[id]; }).length;
+    ask("Delete " + ids.length + (ids.length === 1 ? " photo?" : " photos?"),
+        (nf ? nf + (nf === 1 ? " of them is a favorite. " : " of them are favorites. ") : "") + "They're removed from Vector. This can't be undone.",
+        function () { deleteIds(ids, ids.length === 1 ? "Photo deleted" : ids.length + " photos deleted"); });
+  });
+  $("selFav").addEventListener("click", function () {
+    var ids = Object.keys(picked).map(Number), allFav = ids.every(function (id) { return favs[id]; });
+    setFav(ids, !allFav);
+  });
+  $("selDl").addEventListener("click", function () {
+    var ids = Object.keys(picked).map(Number);
+    ids.forEach(function (id, k) {
+      setTimeout(function () { var a = document.createElement("a"); a.href = DIR + name(id) + ".jpg"; a.download = "vector-" + name(id) + ".jpg"; document.body.appendChild(a); a.click(); a.remove(); }, k * 400);
+    });
+    toast(ids.length === 1 ? "Downloading 1 photo" : "Downloading " + ids.length + " photos");
+  });
+  $("close").addEventListener("click", closeView);
+  $("prev").addEventListener("click", function () { if (cur > 0) open(cur - 1); });
+  $("next").addEventListener("click", function () { if (cur < shown.length - 1) open(cur + 1); });
+  $("favBtn").addEventListener("click", function () { if (cur >= 0) { var id = shown[cur].ID; setFav([id], !favs[id]); } });
+  $("del").addEventListener("click", function () {
+    if (cur < 0) return; var id = shown[cur].ID;
+    ask("Delete this photo?", (favs[id] ? "It's one of your favorites. " : "") + "It's removed from Vector. Download it first if you want to keep it.",
+        function () { deleteIds([id], "Photo deleted"); });
+  });
+  // swipe between photos
+  var sx = null;
+  $("pic").addEventListener("touchstart", function (e) { sx = e.touches[0].clientX; }, {passive: true});
+  $("pic").addEventListener("touchend", function (e) {
+    if (sx === null) return; var dx = e.changedTouches[0].clientX - sx; sx = null;
+    if (dx < -50 && cur < shown.length - 1) open(cur + 1); else if (dx > 50 && cur > 0) open(cur - 1);
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape") { if ($("sheet").classList.contains("show")) $("sheetNo").click(); else if (cur >= 0) closeView(); else if (selecting) $("selBtn").click(); }
+    if (cur >= 0 && e.key === "ArrowRight") $("next").click();
+    if (cur >= 0 && e.key === "ArrowLeft") $("prev").click();
+  });
+  load();
+})();
+</script>
+</body>
+</html>

@@ -88,10 +88,16 @@ body{min-height:100vh;overscroll-behavior:none}
 
   function status(t, bad) { var s = $("status"); s.textContent = t || ""; s.classList.toggle("bad", !!bad); }
 
+  // v31: this page needs his code; the phone page asks for it and sends us back
+  function locked(r) {
+    if (r.status === 401) { location.href = "http://" + location.hostname + ":8889/jamesos/#unlock-explore"; throw new Error("locked"); }
+    return r;
+  }
   function post(body) {
     return fetch(API + "cmd", {method: "POST", cache: "no-store", headers: {"Content-Type": "text/plain", "X-JamesOS": "1"}, body: body})
-      .then(function (r) { return r.json(); });
+      .then(locked).then(function (r) { return r.json(); });
   }
+  fetch(API + "state", {cache: "no-store"}).then(locked).catch(function () {});
   function apply(j) {
     if (!j) return;
     active = !!j.active;
@@ -104,7 +110,7 @@ body{min-height:100vh;overscroll-behavior:none}
   function frame() {
     if (!on) return;
     var t0 = Date.now();
-    fetch(API + "frame", {cache: "no-store"}).then(function (r) {
+    fetch(API + "frame", {cache: "no-store"}).then(locked).then(function (r) {
       if (!r.ok) throw new Error("none");
       return r.blob();
     }).then(function (b) {
@@ -133,7 +139,7 @@ body{min-height:100vh;overscroll-behavior:none}
   setInterval(function () { if (on) move(); }, 125);
   setInterval(function () {
     if (!on) return;
-    fetch(API + "state", {cache: "no-store"}).then(function (r) { return r.json(); }).then(function (j) {
+    fetch(API + "state", {cache: "no-store"}).then(locked).then(function (r) { return r.json(); }).then(function (j) {
       apply(j);
       if (on && !j.on) { status("He stopped exploring.", true); stopLocal(); }
     }).catch(function () { status("Lost him. Check the Wi-Fi.", true); });

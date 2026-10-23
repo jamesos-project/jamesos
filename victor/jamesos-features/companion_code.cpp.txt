@@ -8,6 +8,9 @@
 //   GET  /jamesos/api/whatsnew        -> the WHAT'S NEW list that came with this build
 //   GET  /jamesos/api/wifi            -> v29: Wi-Fi he's on now, saved networks, travel networks (never passwords)
 //   POST /jamesos/api/set  "key=value" -> changes one setting, answers with the new state
+//   POST /jamesos/api/passcode "new=NNNN" | "off" -> v31b: your own passcode (or back to the code on his screen)
+// v31b eye color + volume belong to vic-engine (his real settings, the ones the app changes), so this page
+// leaves a note for it in /dev/shm/jamesos_setreq and vic-engine writes back /dev/shm/jamesos_settings.
 // Safety: changes need POST + the "X-JamesOS: 1" header (other websites can't send that without
 // asking first, and we never say yes), and the address must be an IP or a vector name (DNS rebinding).
 #ifndef JAMES_COMPANION_ROOT
@@ -129,6 +132,92 @@ std::string List(const std::vector<std::string>& v)
   return o + "]";
 }
 
+// ---- v31b: eye color + volume (vic-engine changes them; see JamesPhoneSettings in settingsManager.cpp) ----
+const char* kSetReq   = "/dev/shm/jamesos_setreq";
+const char* kEngState = "/dev/shm/jamesos_settings";
+const size_t kMaxColors = 8;
+
+// "volume=3" ... -> value ("" if he hasn't said yet)
+std::string EngineValue(const std::string& name)
+{
+  std::ifstream in(kEngState);
+  std::string line;
+  while (std::getline(in, line)) {
+    if (line.compare(0, name.size() + 1, name + "=") == 0) { return line.substr(name.size() + 1); }
+  }
+  return "";
+}
+
+bool AskEngine(const std::string& what)
+{
+  static unsigned long seq = 0;
+  const std::string tmp = std::string(kSetReq) + ".tmp";
+  {
+    std::ofstream out(tmp, std::ios::trunc);
+    if (!out.is_open()) { return false; }
+    out << (long)time(nullptr) << "-" << ++seq << " " << what << "\n";
+    if (!out.good()) { return false; }
+  }
+  chmod(tmp.c_str(), 0644);
+  return std::rename(tmp.c_str(), kSetReq) == 0;
+}
+
+// "0.42,0.9" -> true + numbers 0..1 (3 decimals)
+bool ParseColor(const std::string& v, float& h, float& sat)
+{
+  const size_t comma = v.find(',');
+  if (comma == std::string::npos || v.size() > 20 || v.find_first_not_of("0123456789.,") != std::string::npos) { return false; }
+  const std::string a = v.substr(0, comma), b = v.substr(comma + 1);
+  if (a.empty() || b.empty()) { return false; }
+  char* e1 = nullptr;
+  char* e2 = nullptr;
+  h = std::strtof(a.c_str(), &e1);
+  sat = std::strtof(b.c_str(), &e2);
+  if (*e1 != 0 || *e2 != 0 || h < 0.f || h > 1.f || sat < 0.f || sat > 1.f) { return false; }
+  h = (float)(int)(h * 1000.f + 0.5f) / 1000.f;
+  sat = (float)(int)(sat * 1000.f + 0.5f) / 1000.f;
+  return true;
+}
+std::string ColorText(float h, float sat)
+{
+  char b[32];
+  std::snprintf(b, sizeof(b), "%.3f,%.3f", h, sat);
+  return b;
+}
+
+// your own colors, one "0.420,0.900" per line
+std::vector<std::string> MyColors()
+{
+  std::vector<std::string> v;
+  std::ifstream in(F("eye_colors"));
+  std::string line;
+  float h = 0.f, sat = 0.f;
+  while (std::getline(in, line) && v.size() < kMaxColors) {
+    if (ParseColor(line, h, sat) && std::find(v.begin(), v.end(), ColorText(h, sat)) == v.end()) { v.push_back(ColorText(h, sat)); }
+  }
+  return v;
+}
+void SaveColors(const std::vector<std::string>& v)
+{
+  std::string t;
+  for (const auto& c : v) { t += c + "\n"; }
+  if (v.empty()) { Del(F("eye_colors")); } else { Put(F("eye_colors"), t); }
+}
+
+std::string SoundEyesJson()
+{
+  const std::string vol = EngineValue("volume");
+  std::string j = "\"volume\":" + (vol.size() == 1 && vol[0] >= '0' && vol[0] <= '5' ? vol : std::string("-1")) + ",";
+  const std::string mode = EngineValue("eyemode"), preset = EngineValue("preset");
+  float h = 0.f, sat = 0.f;
+  const bool colorOk = ParseColor(EngineValue("hue") + "," + EngineValue("sat"), h, sat);
+  j += "\"eye\":{\"mode\":\"" + (mode == "custom" || mode == "preset" ? mode : std::string("unknown")) + "\",";
+  j += "\"preset\":" + (preset.size() == 1 && preset[0] >= '0' && preset[0] <= '8' ? preset : std::string("-1")) + ",";
+  j += "\"color\":\"" + (colorOk ? ColorText(h, sat) : std::string("")) + "\"},";
+  j += "\"myColors\":" + List(MyColors()) + ",";
+  return j;
+}
+
 std::string StateJson()
 {
   f32 volts = 0.f; s32 tempC = 0; bool onCharger = false, charging = false;
@@ -171,6 +260,11 @@ std::string StateJson()
     bool hot = false;
     while (std::getline(st, line)) { if (line == "hot=1") { hot = true; } }
     j += std::string("\"hot\":") + (hot ? "true" : "false") + ",";
+  }
+  j += SoundEyesJson();   // v31b
+  {
+    const jamesos::pin::Pin pin = jamesos::pin::Read();
+    j += std::string("\"ownCode\":") + (pin.own ? "true" : "false") + ",";
   }
   j += "\"petsToday\":" + std::to_string(ProceduralFaceDrawer::JamesPetsToday()) + ",";
   j += "\"badges\":" + std::to_string(got) + ",\"badgesTotal\":" + std::to_string(n) + ",";
@@ -427,6 +521,7 @@ std::string Set(const std::string& key, const std::string& v)
   if (key == "theme") {
     if (!In(v, kThemes) && !(In(v, kSecretThemes) && SecretUnlocked())) { return "bad value"; }
     Put(F("theme"), v + "\n");
+    Put(F("own_eyes.request"), "theme\n");   // v31b: a theme picked here brings its eye color back
     return "";
   }
   if (key == "holidays") {
@@ -451,6 +546,46 @@ std::string Set(const std::string& key, const std::string& v)
   if (key == "sleep") {
     if (!In(v, {"stars", "clock", "both", "off"})) { return "bad value"; }
     if (v == "off") { Del(F("sleepscreen")); } else { Put(F("sleepscreen"), v + "\n"); }
+    return "";
+  }
+  if (key == "volume") {   // v31b: 0 (mute) .. 5 (loudest), like the Vector app
+    if (v.size() != 1 || v[0] < '0' || v[0] > '5') { return "bad value"; }
+    const std::string now = EngineValue("volume");
+    if (v == "0" && now.size() == 1 && now[0] >= '1' && now[0] <= '5') { Put(F("volume.before"), now + "\n"); }
+    return AskEngine("volume " + v) ? "" : "couldn't tell him";
+  }
+  if (key == "mute") {     // "on" = quiet, "off" = back to how loud he was
+    if (!In(v, {"on", "off"})) { return "bad value"; }
+    if (v == "on") { return Set("volume", "0"); }
+    std::string before = Word(F("volume.before"));
+    if (before.size() != 1 || before[0] < '1' || before[0] > '5') { before = "3"; }
+    return AskEngine("volume " + before) ? "" : "couldn't tell him";
+  }
+  if (key == "eye") {      // "preset:N" (his 9 colors) or "custom:HUE,SATURATION" (0..1)
+    std::string ask;
+    float h = 0.f, sat = 0.f;
+    if (v.size() == 8 && v.compare(0, 7, "preset:") == 0 && v[7] >= '0' && v[7] <= '8') {
+      ask = "eye preset " + v.substr(7);
+    } else if (v.compare(0, 7, "custom:") == 0 && ParseColor(v.substr(7), h, sat)) {
+      ask = "eye custom " + ColorText(h, sat).replace(5, 1, " ");
+    } else {
+      return "bad value";
+    }
+    if (!AskEngine(ask)) { return "couldn't tell him"; }
+    Put(F("own_eyes.request"), "own\n");   // your color wins over a holiday theme right away
+    return "";
+  }
+  if (key == "eyesave" || key == "eyedel") {   // your own colors (up to 8)
+    float h = 0.f, sat = 0.f;
+    if (!ParseColor(v, h, sat)) { return "bad value"; }
+    const std::string c = ColorText(h, sat);
+    std::vector<std::string> list = MyColors();
+    list.erase(std::remove(list.begin(), list.end(), c), list.end());
+    if (key == "eyesave") {
+      if (list.size() >= kMaxColors) { return "you can keep 8 colors. Remove one first"; }
+      list.push_back(c);
+    }
+    SaveColors(list);
     return "";
   }
   if (key == "wifiadd") { return WifiAdd(v); }   // v29: Travel Wi-Fi
@@ -528,9 +663,48 @@ void Reply(struct mg_connection* conn, int code, const std::string& body)
   mg_printf(conn,
             "HTTP/1.1 %d %s\r\nContent-Type: application/json\r\nCache-Control: no-store\r\n"
             "Content-Length: %u\r\nConnection: close\r\n\r\n",
-            code, code == 200 ? "OK" : (code == 403 ? "Forbidden" : (code == 404 ? "Not Found" : "Bad Request")),
+            code, code == 200 ? "OK" : (code == 401 ? "Unauthorized" : (code == 403 ? "Forbidden" : (code == 404 ? "Not Found" :
+            (code == 429 ? "Too Many Requests" : "Bad Request")))),
             (unsigned)body.size());
   mg_write(conn, body.data(), body.size());
+}
+
+// v31: answer with the key as a cookie (stay = remembered for a year, else until the browser closes)
+void ReplyWithKey(struct mg_connection* conn, const std::string& key, bool stay, const std::string& out)
+{
+  mg_printf(conn,
+            "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nCache-Control: no-store\r\n"
+            "Set-Cookie: %s=%s; Path=/;%s HttpOnly; SameSite=Strict\r\n"
+            "Content-Length: %u\r\nConnection: close\r\n\r\n",
+            jamesos::pin::kCookie, key.c_str(), stay ? " Max-Age=31536000;" : "", (unsigned)out.size());
+  mg_write(conn, out.data(), out.size());
+}
+
+// v31 phone page code: 5 wrong codes = wait a minute (10000 codes, so guessing takes days)
+std::mutex gLoginMtx;
+int gLoginFails = 0;
+long gLoginLockUntil = 0;
+
+bool ReadMark(struct mg_connection* conn)
+{
+  const char* mark = mg_get_header(conn, "X-JamesOS");
+  const char* origin = mg_get_header(conn, "Origin");
+  const char* host = mg_get_header(conn, "Host");
+  return mark != nullptr && std::string(mark) == "1" &&
+         (origin == nullptr || std::string(origin) == std::string("http://") + host);
+}
+
+std::string ReadBody(struct mg_connection* conn, size_t max)
+{
+  std::string body;
+  char buf[256];
+  while (body.size() < max) {
+    const int r = mg_read(conn, buf, std::min(sizeof(buf), max - body.size()));
+    if (r <= 0) { break; }
+    body.append(buf, (size_t)r);
+  }
+  while (!body.empty() && (body.back() == '\n' || body.back() == '\r')) { body.pop_back(); }
+  return body;
 }
 
 int Handle(struct mg_connection* conn, void* /*cbdata*/)
@@ -542,8 +716,62 @@ int Handle(struct mg_connection* conn, void* /*cbdata*/)
   }
   const std::string method = info->request_method ? info->request_method : "";
   const std::string uri = info->local_uri ? info->local_uri : "";
+  const bool unlocked = jamesos::pin::Unlocked(mg_get_header(conn, "Cookie"));   // v31
+  const std::string lockJson = std::string("\"unlocked\":") + (unlocked ? "true" : "false") + ",";
+  // v31b: with your own passcode the whole page is locked, like a phone's lock screen
+  const bool ownLock = !unlocked && jamesos::pin::Read().own;
   if (uri == "/jamesos/api/state" && method == "GET") {
-    Reply(conn, 200, StateJson());
+    if (ownLock) {
+      Reply(conn, 200, "{" + lockJson + "\"ownCode\":true,\"locked\":true}");
+      return 1;
+    }
+    Reply(conn, 200, "{" + lockJson + StateJson().substr(1));
+    return 1;
+  }
+  if (ownLock && uri != "/jamesos/api/login") {
+    Reply(conn, 401, "{\"error\":\"locked\"}");
+    return 1;
+  }
+  if (uri == "/jamesos/api/login" && method == "POST") {   // v31: "pin=1234" -> the key as a cookie
+    if (!ReadMark(conn)) { Reply(conn, 403, "{\"error\":\"not allowed\"}"); return 1; }
+    std::string body = ReadBody(conn, 40);   // "pin=1234" or "pin=1234&stay=0"
+    bool stay = true;
+    const size_t amp = body.find('&');
+    if (amp != std::string::npos) { stay = body.substr(amp + 1) != "stay=0"; body = body.substr(0, amp); }
+    const long now = (long)time(nullptr);
+    std::lock_guard<std::mutex> lk(gLoginMtx);
+    if (now < gLoginLockUntil) {
+      Reply(conn, 429, "{\"error\":\"too many tries\",\"wait\":" + std::to_string(gLoginLockUntil - now) + "}");
+      return 1;
+    }
+    const jamesos::pin::Pin p = jamesos::pin::Read();
+    if (!p.ok() || body.rfind("pin=", 0) != 0 || !jamesos::pin::SameKey(body.substr(4), p.code)) {
+      if (++gLoginFails >= 5) { gLoginFails = 0; gLoginLockUntil = now + 60; }
+      Reply(conn, 401, "{\"error\":\"wrong code\"}");
+      return 1;
+    }
+    gLoginFails = 0;
+    ReplyWithKey(conn, p.key, stay, "{\"ok\":true}");
+    return 1;
+  }
+  if (uri == "/jamesos/api/passcode" && method == "POST") {   // v31b: your own passcode
+    if (!ReadMark(conn)) { Reply(conn, 403, "{\"error\":\"not allowed\"}"); return 1; }
+    if (!unlocked) { Reply(conn, 401, "{\"error\":\"locked\"}"); return 1; }
+    const std::string body = ReadBody(conn, 32);
+    jamesos::pin::Pin p;
+    if (body == "off") {
+      p = jamesos::pin::Create();   // back to a code on his screen
+    } else if (body.rfind("new=", 0) == 0) {
+      if (!jamesos::pin::ValidOwn(body.substr(4))) { Reply(conn, 400, "{\"error\":\"use 4 to 8 numbers\"}"); return 1; }
+      p = jamesos::pin::SetOwn(body.substr(4));
+    } else {
+      Reply(conn, 400, "{\"error\":\"bad request\"}");
+      return 1;
+    }
+    if (!p.ok()) { Reply(conn, 400, "{\"error\":\"couldn't save it on the robot\"}"); return 1; }
+    LOG_INFO("JamesOS.Companion.Passcode", "%s", p.own ? "own passcode set" : "back to the code on his screen");
+    sync();
+    ReplyWithKey(conn, p.key, true, std::string("{\"ok\":true,\"ownCode\":") + (p.own ? "true" : "false") + "}");
     return 1;
   }
   if (uri == "/jamesos/api/badges" && method == "GET") {
@@ -551,6 +779,7 @@ int Handle(struct mg_connection* conn, void* /*cbdata*/)
     return 1;
   }
   if (uri == "/jamesos/api/wifi" && method == "GET") {   // v29
+    if (!unlocked) { Reply(conn, 401, "{\"error\":\"locked\"}"); return 1; }   // v31
     Reply(conn, 200, WifiJson());
     return 1;
   }
@@ -567,6 +796,7 @@ int Handle(struct mg_connection* conn, void* /*cbdata*/)
       Reply(conn, 403, "{\"error\":\"not allowed\"}");
       return 1;
     }
+    if (!unlocked) { Reply(conn, 401, "{\"error\":\"locked\"}"); return 1; }   // v31: changes need the code
     char buf[256] = {0};   // v29: room for a Wi-Fi name + password
     int len = 0;
     while (len < (int)sizeof(buf) - 1) {
@@ -604,6 +834,7 @@ int Handle(struct mg_connection* conn, void* /*cbdata*/)
 
 static void JamesCompanionStart(WebService::WebService* web)
 {
+  jamesos::pin::Ensure();   // v31: the phone page code (made the first time, shown in CONF -> PHONE PAGE)
   if (web != nullptr) {
     web->RegisterRequestHandler("/jamesos/api", &JamesCompanion::Handle, nullptr);
     LOG_INFO("JamesOS.Companion", "page at http://<robot IP>:8889/jamesos/");
