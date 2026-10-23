@@ -74,7 +74,7 @@ static std::string JamesOSName()  // JamesOS: real version from /anki/etc/jameso
   std::string id, label;
   std::getline(f, id);
   std::getline(f, label);
-  if (label.empty()) { return "JamesOS v29"; }
+  if (label.empty()) { return "JamesOS v30"; }
   return "JamesOS " + label + (id.compare(0, 5, "test-") == 0 ? " TEST" : "");
 }
 #define OSProject JamesOSName()  // JamesOS: read every time the screen is drawn (deploy writes it after he starts)
@@ -1034,7 +1034,7 @@ void FaceInfoScreenManager::Init(Anim::AnimContext* context, Anim::AnimationStre
       } else {
         build = "NOT PUBLISHED";
       }
-      std::string name = "JAMESOS " + (label.empty() ? std::string("V29") : label);
+      std::string name = "JAMESOS " + (label.empty() ? std::string("V30") : label);
       for (auto& ch : name) { if (ch >= 'a' && ch <= 'z') { ch = (char)(ch - 'a' + 'A'); } }
       const bool proto = ProceduralFaceDrawer::JamesIsPrototype();   // v23: James's PVT
       std::pair<std::string, int> last = proto ? std::pair<std::string, int>{"PVT PROTOTYPE", 4}

@@ -166,6 +166,10 @@ button.item:hover{background:var(--raised)}
         <span class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 8.8a15 15 0 0 1 20 0M5 12.6a10 10 0 0 1 14 0M8.5 16.4a5 5 0 0 1 7 0"/><circle cx="12" cy="20" r="1"/></svg></span>
         <span class="tx"><b>Wi-Fi</b><small>Add a Wi-Fi for when you travel</small></span>
         <svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button></li>
+      <li><button class="item" type="button" id="exploreBtn">
+        <span class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M15.5 8.5l-2 5-5 2 2-5z"/></svg></span>
+        <span class="tx"><b>Explore</b><small>See what he sees and drive him</small></span>
+        <svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button></li>
       <li><button class="item" type="button" data-go="badges">
         <span class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="9" r="6"/><path d="M8.5 14.2L7 22l5-3 5 3-1.5-7.8"/></svg></span>
         <span class="tx"><b>Badges</b><small id="bcount">See what he's unlocked</small></span>
@@ -312,6 +316,9 @@ button.item:hover{background:var(--raised)}
     ["Sleep", [
       ["sleep", "Sleep screen", "On the charger at night", [["stars", "Stars"], ["clock", "Clock"], ["both", "Both"], ["off", "Off"]]]
     ]],
+    ["Care", [
+      ["care", "Vector Care", "Simpler effects when he's hot, safe updates, moving sleep clock", [["on", "On"], ["off", "Off"]]]
+    ]],
     ["Back lights", [
       ["lights", "Light style", "He restarts to change them", [["custom", "JamesOS"], ["normal", "WireOS"], ["anki", "Anki"]]]
     ]]
@@ -409,6 +416,7 @@ button.item:hover{background:var(--raised)}
     document.documentElement.style.setProperty("--hol", EYE[s.holidayNow] || "#F2B544");
     var f = $("facts"); f.textContent = "";
     if (HOLIDAY[s.holidayNow]) { var h = el("li", "hol"); h.appendChild(el("i")); h.appendChild(document.createTextNode(HOLIDAY[s.holidayNow])); f.appendChild(h); }
+    if (s.hot) f.appendChild(el("li", null, "Warm: simpler effects for now"));   // v30 Vector Care
     if (s.petsToday > 0) f.appendChild(el("li", null, s.petsToday + (s.petsToday === 1 ? " pet today" : " pets today")));
     if (s.version) f.appendChild(el("li", null, "JamesOS " + s.version));
     $("bcount").textContent = s.badgesTotal ? s.badges + " of " + s.badgesTotal + " unlocked" : "See what he's unlocked";
@@ -659,6 +667,9 @@ button.item:hover{background:var(--raised)}
       $("wname").value = "";
     });
   });
+
+  // ---- explorer (v31): lives on his other web server (port 8888, next to the camera and wheels) ----
+  $("exploreBtn").addEventListener("click", function () { location.href = "http://" + location.hostname + ":8888/jamesos/explore.html"; });
 
   go(location.hash.slice(1) || "home");
   draw(); refresh(); setInterval(refresh, 5000);

@@ -1,0 +1,218 @@
+// >>> JamesOS explorer (begin)
+// v31 Explorer: drive him from the phone with his camera on screen.
+//   page:  http://<robot IP>:8888/jamesos/explore.html   (served by vic-engine's own web server)
+//   GET  /jamesos/drive/frame   -> newest camera picture (JPEG); also tells him the phone is still there
+//   GET  /jamesos/drive/state   -> {"on":..,"active":..,"busy":..}
+//   POST /jamesos/drive/cmd     "start" | "stop" | "move L R H T"  (wheels mm/s, head -1..1, lift -1..1)
+// He takes control the same way the SDK does, at the DEFAULT level: cliff and pick-up reactions stay on.
+// Safety: motors stop 0.5 s after the last "move", and explorer ends 5 s after the phone stops asking.
+namespace {
+namespace JamesExplore {
+
+struct State {
+  std::mutex m;
+  bool want = false;
+  long long lastSeenMs = 0, lastMoveMs = 0;
+  float l = 0.f, r = 0.f, head = 0.f, lift = 0.f;
+  std::vector<u8> jpeg;
+};
+State gState;
+std::atomic<bool> gActive{false};   // engine thread: control taken and the SDK behavior is running
+std::atomic<bool> gBusy{false};     // an SDK program already has control
+
+long long NowMs()
+{
+  return (long long)std::chrono::duration_cast<std::chrono::milliseconds>(
+           std::chrono::steady_clock::now().time_since_epoch()).count();
+}
+
+float Clamp(float v, float lo, float hi) { return v < lo ? lo : (v > hi ? hi : v); }
+
+bool HostOk(const char* host)
+{
+  if (host == nullptr || host[0] == 0) { return false; }
+  std::string h(host);
+  const size_t colon = h.rfind(':');
+  if (colon != std::string::npos && h.find(']') == std::string::npos) { h = h.substr(0, colon); }
+  bool ip = !h.empty();
+  for (const char c : h) { if (!((c >= '0' && c <= '9') || c == '.')) { ip = false; } }
+  if (ip || h == "localhost") { return true; }
+  std::string low;
+  for (const char c : h) { low += (char)((c >= 'A' && c <= 'Z') ? c - 'A' + 'a' : c); }
+  return low.rfind("vector-", 0) == 0 || (low.size() > 6 && low.compare(low.size() - 6, 6, ".local") == 0);
+}
+
+void Reply(struct mg_connection* conn, int code, const std::string& type, const std::string& body)
+{
+  mg_printf(conn,
+            "HTTP/1.1 %d %s\r\nContent-Type: %s\r\nCache-Control: no-store\r\n"
+            "Content-Length: %u\r\nConnection: close\r\n\r\n",
+            code, code == 200 ? "OK" : (code == 403 ? "Forbidden" : (code == 404 ? "Not Found" : "Bad Request")),
+            type.c_str(), (unsigned)body.size());
+  mg_write(conn, body.data(), body.size());
+}
+
+std::string StateJson()
+{
+  bool want;
+  {
+    std::lock_guard<std::mutex> lk(gState.m);
+    want = gState.want;
+  }
+  return std::string("{\"on\":") + (want ? "true" : "false") + ",\"active\":" + (gActive ? "true" : "false") +
+         ",\"busy\":" + (gBusy ? "true" : "false") + "}";
+}
+
+int Handle(struct mg_connection* conn, void* /*cbdata*/)
+{
+  const struct mg_request_info* info = mg_get_request_info(conn);
+  if (info == nullptr || !HostOk(mg_get_header(conn, "Host"))) {
+    Reply(conn, 403, "application/json", "{\"error\":\"not allowed\"}");
+    return 1;
+  }
+  const std::string method = info->request_method ? info->request_method : "";
+  const std::string uri = info->local_uri ? info->local_uri : "";
+  const long long now = NowMs();
+
+  if (uri == "/jamesos/drive/frame" && method == "GET") {
+    std::vector<u8> img;
+    {
+      std::lock_guard<std::mutex> lk(gState.m);
+      gState.lastSeenMs = now;
+      img = gState.jpeg;
+    }
+    if (img.empty()) { Reply(conn, 404, "application/json", "{\"error\":\"no picture yet\"}"); return 1; }
+    Reply(conn, 200, "image/jpeg", std::string(img.begin(), img.end()));
+    return 1;
+  }
+  if (uri == "/jamesos/drive/state" && method == "GET") {
+    {
+      std::lock_guard<std::mutex> lk(gState.m);
+      gState.lastSeenMs = now;
+    }
+    Reply(conn, 200, "application/json", StateJson());
+    return 1;
+  }
+  if (uri == "/jamesos/drive/cmd" && method == "POST") {
+    const char* mark = mg_get_header(conn, "X-JamesOS");
+    const char* origin = mg_get_header(conn, "Origin");
+    const char* host = mg_get_header(conn, "Host");
+    if (mark == nullptr || std::string(mark) != "1" ||
+        (origin != nullptr && std::string(origin) != std::string("http://") + host)) {
+      Reply(conn, 403, "application/json", "{\"error\":\"not allowed\"}");
+      return 1;
+    }
+    char buf[96] = {0};
+    int len = 0;
+    while (len < (int)sizeof(buf) - 1) {
+      const int rd = mg_read(conn, buf + len, sizeof(buf) - 1 - (size_t)len);
+      if (rd <= 0) { break; }
+      len += rd;
+    }
+    const std::string body(buf, (size_t)len);
+    {
+      std::lock_guard<std::mutex> lk(gState.m);
+      gState.lastSeenMs = now;
+      if (body.rfind("start", 0) == 0) {
+        gState.want = true;
+      } else if (body.rfind("stop", 0) == 0) {
+        gState.want = false;
+        gState.l = gState.r = gState.head = gState.lift = 0.f;
+      } else if (body.rfind("move ", 0) == 0) {
+        float l = 0.f, r = 0.f, h = 0.f, t = 0.f;
+        if (std::sscanf(body.c_str() + 5, "%f %f %f %f", &l, &r, &h, &t) != 4) {
+          Reply(conn, 400, "application/json", "{\"error\":\"bad move\"}");
+          return 1;
+        }
+        gState.l = Clamp(l, -160.f, 160.f);
+        gState.r = Clamp(r, -160.f, 160.f);
+        gState.head = Clamp(h, -1.f, 1.f);
+        gState.lift = Clamp(t, -1.f, 1.f);
+        gState.lastMoveMs = now;
+      } else {
+        Reply(conn, 400, "application/json", "{\"error\":\"unknown command\"}");
+        return 1;
+      }
+    }
+    Reply(conn, 200, "application/json", StateJson());
+    return 1;
+  }
+  Reply(conn, 404, "application/json", "{\"error\":\"not found\"}");
+  return 1;
+}
+
+}  // namespace JamesExplore
+}  // namespace
+
+// called by VisionComponent with every camera picture (only kept while explorer is on)
+void JamesExploreStoreFrame(const std::vector<u8>& jpeg)
+{
+  std::lock_guard<std::mutex> lk(JamesExplore::gState.m);
+  if (JamesExplore::gState.want && !jpeg.empty()) { JamesExplore::gState.jpeg = jpeg; }
+}
+
+void SDKComponent::JamesExploreUpdate()
+{
+  using namespace JamesExplore;
+  const long long now = NowMs();
+  bool want;
+  float l, r, h, t;
+  long long lastMove;
+  {
+    std::lock_guard<std::mutex> lk(gState.m);
+    if (gState.want && now - gState.lastSeenMs > 5000) { gState.want = false; }   // the phone went away
+    want = gState.want;
+    l = gState.l; r = gState.r; h = gState.head; t = gState.lift;
+    lastMove = gState.lastMoveMs;
+    if (!want) { gState.jpeg.clear(); }
+  }
+  auto* ei = _robot->GetContext()->GetExternalInterface();
+
+  if (want && !_jamesExploreOn) {
+    if (_sdkWantsControl || _sdkWantsLock) {   // an SDK program is already driving him: don't fight it
+      gBusy = true;
+      std::lock_guard<std::mutex> lk(gState.m);
+      gState.want = false;
+      return;
+    }
+    gBusy = false;
+    _jamesExploreOn = true;
+    _sdkWantsControl = true;
+    _sdkControlLevel = external_interface::ControlRequest_Priority_DEFAULT;
+    _sdkControlConnId = 0;
+    SubscribeToVisionMode(true, VisionMode::Viz, false);
+    LOG_INFO("SDKComponent.JamesExplore", "Explorer on");
+  } else if (!want && _jamesExploreOn) {
+    if (_sdkBehaviorActivated && ei != nullptr) {
+      ei->Broadcast(ExternalInterface::MessageGameToEngine(ExternalInterface::DriveWheels(0.f, 0.f, 0.f, 0.f)));
+      ei->Broadcast(ExternalInterface::MessageGameToEngine(ExternalInterface::MoveHead(0.f)));
+      ei->Broadcast(ExternalInterface::MessageGameToEngine(ExternalInterface::MoveLift(0.f)));
+    }
+    _jamesExploreOn = false;
+    _jamesSent = false;
+    _sdkWantsControl = false;
+    SubscribeToVisionMode(false, VisionMode::Viz, false);
+    LOG_INFO("SDKComponent.JamesExplore", "Explorer off");
+  }
+  gActive = _jamesExploreOn && _sdkBehaviorActivated;
+  if (!gActive || ei == nullptr) { return; }
+
+  // no "move" for half a second = stop (phone froze, finger lifted, Wi-Fi dropped)
+  if (now - lastMove > 500) { l = r = h = t = 0.f; }
+  const bool changed = l != _jamesL || r != _jamesR || h != _jamesH || t != _jamesT;
+  const bool moving = l != 0.f || r != 0.f || h != 0.f || t != 0.f;
+  if (!changed && !(moving && now - _jamesLastSendMs > 300) && _jamesSent) { return; }
+  ei->Broadcast(ExternalInterface::MessageGameToEngine(ExternalInterface::DriveWheels(l, r, 0.f, 0.f)));
+  ei->Broadcast(ExternalInterface::MessageGameToEngine(ExternalInterface::MoveHead(h * 1.5f)));    // rad/s
+  ei->Broadcast(ExternalInterface::MessageGameToEngine(ExternalInterface::MoveLift(t * 2.0f)));    // rad/s
+  _jamesL = l; _jamesR = r; _jamesH = h; _jamesT = t;
+  _jamesLastSendMs = now;
+  _jamesSent = true;
+}
+
+void SDKComponent::JamesExploreRegister()
+{
+  auto* ws = _robot->GetContext()->GetWebService();
+  if (ws != nullptr) { ws->RegisterRequestHandler("/jamesos/drive/", &JamesExplore::Handle, nullptr); }
+}
+// <<< JamesOS explorer (end)

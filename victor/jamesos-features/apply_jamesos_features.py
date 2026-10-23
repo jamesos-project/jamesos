@@ -982,4 +982,66 @@ if ld27n != ld27:
     write(LOADER_CPP, ld27n)
 print("[27] PVT edition: MODE / LAB / EDITION in gold on the prototype" + ("" if JAMESOS_PRIVATE else " (left out: private extras are off)"))
 
+# ------------------------------------------------------------------ [28] Explorer (v31)
+# Drive him from the phone with his camera on screen. Lives in vic-engine (it owns the camera and wheels):
+# the page is served by vic-engine's web server on port 8888, the code sits in sdkComponent.cpp and takes
+# control like the SDK does (DEFAULT level, so cliff and pick-up reactions stay on).
+SDK_CPP = "engine/components/sdkComponent.cpp"
+SDK_H = "engine/components/sdkComponent.h"
+VISION_CPP = "engine/components/visionComponent.cpp"
+ex_code = piece("explore_code.cpp.txt")
+sc = read(SDK_CPP)
+b28, e28 = "// >>> JamesOS explorer (begin)", "// <<< JamesOS explorer (end)\n"
+if b28 in sc:
+    a = sc.index(b28); b = sc.index(e28, a) + len(e28)
+    sc = sc[:a] + ex_code.rstrip("\n") + "\n" + sc[b:]
+else:
+    inc = '#include "engine/robot.h"\n'
+    must_have(sc, inc, SDK_CPP)
+    sc = sc.replace(inc, inc + '#include "engine/externalInterface/externalInterface.h" // JamesOS explorer\n'
+                    '#include "clad/externalInterface/messageGameToEngine.h"\n'
+                    '#include "webServerProcess/src/webService.h"\n'
+                    '#include <atomic>\n#include <chrono>\n#include <cstdio>\n#include <mutex>\n#include <string>\n#include <vector>\n', 1)
+    anchor = "SDKComponent::SDKComponent()\n"
+    must_have(sc, anchor, SDK_CPP)
+    sc = sc.replace(anchor, ex_code.rstrip("\n") + "\n\n" + anchor, 1)
+reg = "  JamesExploreRegister(); // JamesOS explorer\n"
+if reg not in sc:
+    anchor = "  _robot = robot;\n  auto* gi = robot->GetGatewayInterface();\n"
+    must_have(sc, anchor, SDK_CPP)
+    sc = sc.replace(anchor, "  _robot = robot;\n" + reg + "  auto* gi = robot->GetGatewayInterface();\n", 1)
+upd = "  JamesExploreUpdate(); // JamesOS explorer\n"
+if upd not in sc:
+    anchor = "void SDKComponent::UpdateDependent(const RobotCompMap& dependentComps)\n{\n"
+    must_have(sc, anchor, SDK_CPP)
+    sc = sc.replace(anchor, anchor + upd, 1)
+write(SDK_CPP, sc)
+sh = read(SDK_H)
+if "JamesExploreUpdate" not in sh:
+    anchor = "  bool _captureSingleImage = false;\n"
+    must_have(sh, anchor, SDK_H)
+    sh = sh.replace(anchor, anchor +
+        "  // JamesOS explorer (v31)\n"
+        "  void JamesExploreUpdate();\n  void JamesExploreRegister();\n"
+        "  bool _jamesExploreOn = false, _jamesSent = false;\n"
+        "  float _jamesL = 0.f, _jamesR = 0.f, _jamesH = 0.f, _jamesT = 0.f;\n"
+        "  long long _jamesLastSendMs = 0;\n", 1)
+    write(SDK_H, sh)
+vc = read(VISION_CPP)
+if "JamesExploreStoreFrame" not in vc:
+    anchor = "  Result VisionComponent::UpdateAllResults()\n"
+    must_have(vc, anchor, VISION_CPP)
+    vc = vc.replace(anchor, "  void JamesExploreStoreFrame(const std::vector<u8>& jpeg); // JamesOS explorer (sdkComponent.cpp)\n\n" + anchor, 1)
+    hook = '      SendCompressedImage(result.compressedDisplayImg, "camera");\n'
+    must_have(vc, hook, VISION_CPP)
+    vc = vc.replace(hook, hook + "      JamesExploreStoreFrame(result.compressedDisplayImg.GetCompressedBuffer()); // JamesOS explorer\n", 1)
+    write(VISION_CPP, vc)
+ex_src = os.path.join(HERE, "companion", "explore.html")
+ex_dst = "resources/webserver/jamesos/explore.html"
+data = open(ex_src, "rb").read()
+if not os.path.exists(ex_dst) or open(ex_dst, "rb").read() != data:
+    with open(ex_dst, "wb") as f:
+        f.write(data)
+print("[28] Explorer: http://<robot IP>:8888/jamesos/explore.html  (camera + driving from the phone)")
+
 print("\nAll done. Next: ./jamesos.sh go   (builds + deploys)")

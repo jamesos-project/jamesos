@@ -81,7 +81,7 @@ set -e
 cd "$(dirname "$0")"
 
 # the JamesOS version name (shown on Vector's info screen as "OS: JamesOS v21")
-JAMESOS_RELEASE="v29"
+JAMESOS_RELEASE="v30"
 
 if [[ "$1" == "use" ]]; then
   # ./jamesos.sh use 1.0   (a name from ./jamesos.sh find)   or   ./jamesos.sh use 192.168.0.116

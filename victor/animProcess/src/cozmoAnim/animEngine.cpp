@@ -268,6 +268,13 @@ std::string StateJson()
   j += std::string("\"charger\":") + (onCharger ? "true" : "false") + ",";
   j += std::string("\"charging\":") + (charging ? "true" : "false") + ",";
   j += "\"tempC\":" + std::to_string(tempC) + ",";
+  {   // v30 Vector Care: is the heat guard on right now?
+    std::ifstream st("/dev/shm/jamesos_status");
+    std::string line;
+    bool hot = false;
+    while (std::getline(st, line)) { if (line == "hot=1") { hot = true; } }
+    j += std::string("\"hot\":") + (hot ? "true" : "false") + ",";
+  }
   j += "\"petsToday\":" + std::to_string(ProceduralFaceDrawer::JamesPetsToday()) + ",";
   j += "\"badges\":" + std::to_string(got) + ",\"badgesTotal\":" + std::to_string(n) + ",";
   j += "\"holidayNow\":\"" + Esc(ProceduralFaceDrawer::JamesLightTheme()) + "\",";
@@ -285,6 +292,7 @@ std::string StateJson()
   j += "\"stars\":\"" + Stars() + "\",\"petting\":\"" + Petting() + "\",";
   j += std::string("\"mood\":\"") + (Exists(F("mood.on")) ? "on" : "off") + "\",";
   j += std::string("\"sleepy\":\"") + (Exists(F("sleepy.off")) ? "off" : "on") + "\",";
+  j += std::string("\"care\":\"") + (Exists(F("care.off")) ? "off" : "on") + "\",";   // v30 Vector Care
   j += "\"funeyes\":\"" + FunEyes() + "\",\"sleep\":\"" + Sleep() + "\",\"lights\":\"" + Lights() + "\"},";
   j += "\"choices\":{\"stars\":" + List(stars) + ",\"theme\":" + List(themes) + "}";
   j += "}";
@@ -535,6 +543,7 @@ std::string Set(const std::string& key, const std::string& v)
     return "";
   }
   if (key == "mood")   { if (!In(v, {"on", "off"})) { return "bad value"; } Flag(F("mood.on"), v == "on"); return ""; }
+  if (key == "care")   { if (!In(v, {"on", "off"})) { return "bad value"; } Flag(F("care.off"), v == "off"); return ""; }   // v30
   if (key == "sleepy") { if (!In(v, {"on", "off"})) { return "bad value"; } Flag(F("sleepy.off"), v == "off"); return ""; }
   if (key == "funeyes") {
     if (!In(v, {"auto", "on", "off"})) { return "bad value"; }

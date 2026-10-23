@@ -98,6 +98,12 @@ namespace {
   const char* kJamesOwnEyesFile = "/data/data/jamesos/own_eyes";   // remembers that (per theme) across restarts
   std::atomic<int>   gJamesSleepMode{0};   // JamesSleepMode
   std::atomic<bool>  gJamesDbgEyes{false};   // v29 debug
+  // v30 Vector Care (on unless /data/data/jamesos/care.off exists)
+  const char* kJamesCareOffFlag = "/data/data/jamesos/care.off";
+  std::atomic<bool>      gJamesCareOn{true};
+  std::atomic<bool>      gJamesHot{false};        // v30 heat guard: battery is hot, keep the effects simple
+  std::atomic<bool>      gJamesHeatTest{false};   // /data/data/jamesos/heat.test: pretend he's hot (for testing)
+  const s32              kJamesHotC = 45, kJamesCoolC = 42;   // hot at 45 C, normal again at 42 C
   std::atomic<int>   gJamesDbgRedraws{0};    // v29 debug
   std::mutex         gJamesPetsMtx;
   bool               gJamesPetsLoaded = false;
@@ -272,7 +278,10 @@ namespace {
     else if (sleep == "clock") { mode = JamesSleepMode::Clock; }
     else if (sleep == "both")  { mode = JamesSleepMode::Both; }
     gJamesSleepMode = (int)mode;
+    gJamesCareOn = !JamesFileExists(kJamesCareOffFlag);   // v30
+    gJamesHeatTest = JamesFileExists("/data/data/jamesos/heat.test");
   }
+
 
   bool JamesIsHalloween() { return gJamesTheme == (int)JamesTheme::Halloween; }
   bool JamesIsChristmas() { return gJamesTheme == (int)JamesTheme::Christmas; }
@@ -863,6 +872,18 @@ void ProceduralFaceDrawer::JamesSetStatus(f32 battVolts, s32 battTempC, bool onC
 {
   gJamesBattV = battVolts;
   gJamesTempC = battTempC;
+  // v30: read the Care switches here too (about every 5 s) - the other refreshes only run while the face changes
+  {
+    static u32 careReads = 0;
+    if ((careReads++ % 5) == 0) {
+      gJamesCareOn = !JamesFileExists(kJamesCareOffFlag);
+      gJamesHeatTest = JamesFileExists("/data/data/jamesos/heat.test");
+    }
+  }
+  // v30 Vector Care - heat guard (with a gap so it doesn't flip back and forth)
+  if (!gJamesCareOn) { gJamesHot = false; }
+  else if (gJamesHeatTest || battTempC >= kJamesHotC) { gJamesHot = true; }
+  else if (battTempC <= kJamesCoolC) { gJamesHot = false; }
   gJamesOnCharger = onCharger;
   gJamesCharging = charging;
   gJamesHour = hour;
@@ -875,7 +896,8 @@ void ProceduralFaceDrawer::JamesSetStatus(f32 battVolts, s32 battTempC, bool onC
   if ((jamesStatusWrites++ % 5) == 0) {
     FILE* f = fopen("/dev/shm/jamesos_status.tmp", "w");
     if (f != nullptr) {
-      fprintf(f, "charger=%d\ncharging=%d\nvolts=%.2f\n", onCharger ? 1 : 0, charging ? 1 : 0, (double)battVolts);
+      fprintf(f, "charger=%d\ncharging=%d\nvolts=%.2f\ntemp=%d\nhot=%d\n", onCharger ? 1 : 0, charging ? 1 : 0,
+              (double)battVolts, (int)battTempC, gJamesHot ? 1 : 0);
       fclose(f);
       rename("/dev/shm/jamesos_status.tmp", "/dev/shm/jamesos_status");
     }
@@ -1162,6 +1184,7 @@ namespace {
       if (all.empty() || all.find("pvic.xyz") != std::string::npos) { return; }
     }
     if (chargerSince == 0) { return; }
+    if (gJamesHot) { return; }   // v30 safe updates: not while he's hot
     const bool test = JamesFileExists("/data/data/jamesos/update.test");
     if (test) {
       if (now - chargerSince < 60) { return; }
@@ -1338,7 +1361,7 @@ bool ProceduralFaceDrawer::ApplyStarlight(Vision::ImageRGB565& output, bool dirt
   const bool shooting = (cfg.style == JamesStarStyle::Shooting);
 
   // Maybe start a new sparkle somewhere inside an eye (gold and Galaxy Max sparkle more)
-  const bool extra = (cfg.style == JamesStarStyle::Gold) || JamesIsGalaxyMax();
+  const bool extra = ((cfg.style == JamesStarStyle::Gold) || JamesIsGalaxyMax()) && !gJamesHot;   // v30: fewer sparkles when hot
   const s32 maxStars = extra ? cfg.maxStars + 3 : cfg.maxStars;
   const f32 chance = extra ? cfg.chance * 3.f : cfg.chance;
   if ((s32)stars.size() < maxStars && uni(gen) < chance) {
@@ -1456,7 +1479,7 @@ bool ProceduralFaceDrawer::ApplyJamesHearts(Vision::ImageRGB565& output, bool di
   }
 
   const bool galaxyMax = JamesIsGalaxyMax();
-  const bool want = (petFxOn && gJamesPetting) || galaxyMax || galaxyAlways;   // Galaxy Max theme / ALWAYS: always on
+  const bool want = ((petFxOn && gJamesPetting) || galaxyMax || galaxyAlways) && !gJamesHot;   // v30: no galaxy while hot
   amount += want ? 0.10f : -0.07f;
   amount = Util::Clamp(amount, 0.f, 1.f);
   if (amount <= 0.f) {
@@ -2394,6 +2417,23 @@ bool ProceduralFaceDrawer::ApplyJamesExtras(Vision::ImageRGB565& output, bool di
     const JamesSleepMode mode = (JamesSleepMode)gJamesSleepMode.load();
     const bool sleeping = (mode != JamesSleepMode::Off) && gJamesOnCharger && closedSec > 6.f;
     sleepAmt = Util::Clamp(sleepAmt + (sleeping ? dt / 1.5f : -dt / 0.4f), 0.f, 1.f);   // fade in 1.5 s, out 0.4 s
+    // v30: settings are normally re-read when the eye color is redrawn - that doesn't happen while he
+    // sleeps (same eyes all night), so also re-read them every 5 seconds here
+    {
+      static long long lastRefreshMs = 0;
+      if (sleepNowMs - lastRefreshMs >= 5000) {
+        lastRefreshMs = sleepNowMs;
+        JamesRefreshThemeAndSleep();
+        JamesUpdateRestartCheck();   // a finished update can restart him at night even while his eyes don't change
+      }
+    }
+    // v30 Vector Care - the sleep clock moves a few pixels every minute, so nothing sits in one spot all night
+    s32 careX = 0, careY = 0;
+    if (gJamesCareOn) {
+      const s32 m = gJamesMinute.load();
+      careX = (m * 7) % 9 - 4;   // -4..4
+      careY = (m * 3) % 5 - 2;   // -2..2
+    }
     // v29 debug: touch /data/data/jamesos/sleep.debug and every second one line goes to /dev/shm/jamesos_sleep
     {
       static long long dbgLastMs = 0;
@@ -2441,8 +2481,8 @@ bool ProceduralFaceDrawer::ApplyJamesExtras(Vision::ImageRGB565& output, bool di
         const s32 scale = 3;
         const s32 tw = JamesTextWidth(timeStr, scale);
         const s32 aw = JamesTextWidth(ampm, 1);
-        const s32 x0 = (W - (tw + 3 + aw)) / 2;
-        const s32 y0 = std::max<s32>(2, (s32)(0.10f * H));
+        const s32 x0 = (W - (tw + 3 + aw)) / 2 + careX;
+        const s32 y0 = std::max<s32>(2, (s32)(0.10f * H)) + careY;
         u8 cr = 170, cg = 140, cb = 255;               // soft lavender
         if (JamesIsHalloween()) { cr = 255; cg = 120; cb = 20; }
         if (JamesIsChristmas()) { cr = 190; cg = 230; cb = 255; }
@@ -2453,7 +2493,7 @@ bool ProceduralFaceDrawer::ApplyJamesExtras(Vision::ImageRGB565& output, bool di
         // v25: he doesn't know the local time yet (time zone not set at setup) - say so instead of nothing
         const std::string msg = "SET TIME ZONE";
         const s32 mw = JamesTextWidth(msg, 1);
-        JamesDrawText(output, msg, (W - mw) / 2, std::max<s32>(2, (s32)(0.10f * H)), 1, 0.6f * sleepAmt, 170, 140, 255);
+        JamesDrawText(output, msg, (W - mw) / 2 + careX, std::max<s32>(2, (s32)(0.10f * H)) + careY, 1, 0.6f * sleepAmt, 170, 140, 255);
       }
       drew = true;
     }

@@ -128,6 +128,7 @@ cmd_ready() {
   if [ $((now - mt)) -gt 60 ]; then
     echo "ok (charger info is old)"; return 0
   fi
+  if grep -q '^hot=1' "$STATUS"; then echo "waiting: he's warm (Vector Care)"; return 3; fi   # v30 safe updates
   if grep -q '^charger=1' "$STATUS"; then echo "ok (on charger)"; return 0; fi
   echo "waiting for the charger"; return 3
 }

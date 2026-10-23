@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#16181B">
+<title>Explore - JamesOS</title>
+<style>
+:root{--graphite:#16181B;--panel:#1F2226;--raised:#2A2E33;--edge:#30343A;--text:#F2F1EE;--muted:#A9A7A1;--faint:#75736E;
+  --gold:#F2B544;--gold-ink:#231A06;--gold-tint:rgba(242,181,68,.14);--bad:#F28B82;--r-lg:20px;--r-md:14px}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--graphite);color:var(--text);font:16px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+body{min-height:100vh;overscroll-behavior:none}
+.app{max-width:560px;margin:0 auto;padding:0 16px calc(24px + env(safe-area-inset-bottom))}
+.top{display:flex;align-items:center;justify-content:space-between;height:60px}
+.top a{color:var(--muted);text-decoration:none;font-size:15px;padding:8px 0}
+.top b{font-weight:600}
+.cam{position:relative;aspect-ratio:16/9;background:#000;border-radius:var(--r-lg);overflow:hidden;display:grid;place-items:center}
+.cam img{width:100%;height:100%;object-fit:cover;display:block}
+.cam .msg{position:absolute;inset:0;display:grid;place-items:center;padding:20px;text-align:center;color:var(--muted);font-size:15px}
+.cam .msg[hidden]{display:none}
+.status{margin:10px 2px 0;font-size:14px;color:var(--muted);min-height:20px}
+.status.bad{color:var(--bad)}
+.ctl{display:grid;grid-template-columns:1fr auto;gap:16px;align-items:center;margin-top:16px}
+.pad{display:grid;grid-template-columns:repeat(3,72px);grid-template-rows:repeat(3,72px);gap:8px;justify-content:center}
+.side{display:grid;gap:8px}
+.pair{display:grid;grid-template-columns:auto 56px;gap:8px;align-items:center}
+.pair span{font-size:13px;color:var(--muted);text-align:right}
+.btn{border:0;border-radius:var(--r-md);background:var(--panel);color:var(--text);display:grid;place-items:center;
+  touch-action:none;user-select:none;-webkit-user-select:none;font:inherit;cursor:pointer}
+.btn:active,.btn.on{background:var(--gold);color:var(--gold-ink)}
+.btn svg{width:28px;height:28px}
+.sm{height:56px}
+.stop{grid-column:2;grid-row:2;background:#3A1F1E;color:var(--bad);font-weight:700;font-size:14px;letter-spacing:.04em}
+.stop:active{background:var(--bad);color:#2A0E0C}
+.row{display:flex;gap:10px;align-items:center;margin-top:18px}
+.row label{font-size:14px;color:var(--muted)}
+.seg{display:flex;background:var(--panel);border-radius:12px;padding:3px;flex:1}
+.seg button{flex:1;height:38px;border:0;border-radius:9px;background:none;color:var(--muted);font:inherit;font-size:14px;cursor:pointer}
+.seg button.sel{background:var(--raised);color:var(--text)}
+.main{width:100%;height:54px;border:0;border-radius:27px;background:var(--gold);color:var(--gold-ink);font:inherit;font-weight:600;font-size:17px;margin-top:18px;cursor:pointer}
+.main.quiet{background:none;border:1px solid var(--edge);color:var(--text);font-weight:500}
+.note{margin:14px 2px 0;font-size:13px;color:var(--faint);line-height:1.5}
+@media (max-width:380px){.pad{grid-template-columns:repeat(3,62px);grid-template-rows:repeat(3,62px)}}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top"><a href="#" id="home">‹ JamesOS</a><b>Explore</b><span style="width:60px"></span></header>
+
+  <div class="cam"><img id="cam" alt="What he sees"><div class="msg" id="camMsg">Press Start to see what he sees and drive him.</div></div>
+  <p class="status" id="status" role="status" aria-live="polite"></p>
+
+  <div class="ctl">
+    <div class="pad" aria-label="Drive">
+      <span></span>
+      <button class="btn" data-k="f" aria-label="Forward"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 15l6-6 6 6"/></svg></button>
+      <span></span>
+      <button class="btn" data-k="l" aria-label="Turn left"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg></button>
+      <button class="btn stop" id="stopBtn">STOP</button>
+      <button class="btn" data-k="r" aria-label="Turn right"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></button>
+      <span></span>
+      <button class="btn" data-k="b" aria-label="Backward"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></button>
+      <span></span>
+    </div>
+    <div class="side">
+      <div class="pair"><span>Head</span><button class="btn sm" data-k="hu" aria-label="Head up"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 15l6-6 6 6"/></svg></button></div>
+      <div class="pair"><span></span><button class="btn sm" data-k="hd" aria-label="Head down"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></button></div>
+      <div class="pair"><span>Arm</span><button class="btn sm" data-k="au" aria-label="Arm up"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 15l6-6 6 6"/></svg></button></div>
+      <div class="pair"><span></span><button class="btn sm" data-k="ad" aria-label="Arm down"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></button></div>
+    </div>
+  </div>
+
+  <div class="row"><label>Speed</label><div class="seg" id="speed"><button data-s="45">Slow</button><button data-s="90" class="sel">Normal</button><button data-s="150">Fast</button></div></div>
+
+  <button class="main" id="go">Start</button>
+  <p class="note">He keeps his cliff and pick-up reactions while you drive. He stops by himself if you let go or the phone loses Wi-Fi, and goes back to normal when you leave this page. On a computer: arrow keys or WASD, R/F for his head, T/G for his arm, Space to stop.</p>
+</div>
+
+<script>
+(function () {
+  "use strict";
+  var API = "/jamesos/drive/";
+  function $(id) { return document.getElementById(id); }
+  var on = false, active = false, held = {}, speed = 90, lastSentZero = true, frameUrl = null;
+
+  $("home").href = "http://" + location.hostname + ":8889/jamesos/";
+
+  function status(t, bad) { var s = $("status"); s.textContent = t || ""; s.classList.toggle("bad", !!bad); }
+
+  function post(body) {
+    return fetch(API + "cmd", {method: "POST", cache: "no-store", headers: {"Content-Type": "text/plain", "X-JamesOS": "1"}, body: body})
+      .then(function (r) { return r.json(); });
+  }
+  function apply(j) {
+    if (!j) return;
+    active = !!j.active;
+    if (j.busy) { status("An SDK program is controlling him right now. Close it and try again.", true); stopLocal(); return; }
+    if (on && !active) status("Asking him to pause what he's doing…");
+    if (on && active) status("Driving. Hold a button to move.");
+  }
+
+  // ---- camera: ask for the next picture as soon as the last one arrived ----
+  function frame() {
+    if (!on) return;
+    var t0 = Date.now();
+    fetch(API + "frame", {cache: "no-store"}).then(function (r) {
+      if (!r.ok) throw new Error("none");
+      return r.blob();
+    }).then(function (b) {
+      var u = URL.createObjectURL(b);
+      $("cam").src = u;
+      if (frameUrl) URL.revokeObjectURL(frameUrl);
+      frameUrl = u;
+      $("camMsg").hidden = true;
+    }).catch(function () {
+      if (on && !active) $("camMsg").textContent = "Waiting for his camera…";
+    }).then(function () {
+      setTimeout(frame, Math.max(0, 90 - (Date.now() - t0)));
+    });
+  }
+
+  // ---- driving: send what is held 8 times a second (he stops 0.5 s after the last one) ----
+  function move() {
+    var f = (held.f ? 1 : 0) - (held.b ? 1 : 0), t = (held.r ? 1 : 0) - (held.l ? 1 : 0);
+    var l = speed * f + speed * 0.8 * t, r = speed * f - speed * 0.8 * t;
+    var h = (held.hu ? 1 : 0) - (held.hd ? 1 : 0), a = (held.au ? 1 : 0) - (held.ad ? 1 : 0);
+    var zero = !l && !r && !h && !a;
+    if (zero && lastSentZero) return;
+    lastSentZero = zero;
+    post("move " + l.toFixed(0) + " " + r.toFixed(0) + " " + h + " " + a).then(apply).catch(function () { status("Lost him. Check the Wi-Fi.", true); });
+  }
+  setInterval(function () { if (on) move(); }, 125);
+  setInterval(function () {
+    if (!on) return;
+    fetch(API + "state", {cache: "no-store"}).then(function (r) { return r.json(); }).then(function (j) {
+      apply(j);
+      if (on && !j.on) { status("He stopped exploring.", true); stopLocal(); }
+    }).catch(function () { status("Lost him. Check the Wi-Fi.", true); });
+  }, 1500);
+
+  function start() {
+    on = true; held = {}; lastSentZero = true;
+    $("go").textContent = "Stop exploring"; $("go").classList.add("quiet");
+    $("camMsg").hidden = false; $("camMsg").textContent = "Waiting for his camera…";
+    status("Asking him to pause what he's doing…");
+    post("start").then(apply).catch(function () { status("Can't reach him. Is this phone on his Wi-Fi?", true); stopLocal(); });
+    frame();
+  }
+  function stopLocal() {
+    on = false; active = false; held = {};
+    $("go").textContent = "Start"; $("go").classList.remove("quiet");
+    $("camMsg").hidden = false; $("camMsg").textContent = "Press Start to see what he sees and drive him.";
+    document.querySelectorAll(".btn.on").forEach(function (b) { b.classList.remove("on"); });
+  }
+  function stop() { if (on) { post("stop").catch(function () {}); } stopLocal(); status("He's back to normal."); }
+
+  $("go").addEventListener("click", function () { if (on) stop(); else start(); });
+  $("stopBtn").addEventListener("click", function () {
+    held = {}; document.querySelectorAll(".btn.on").forEach(function (b) { b.classList.remove("on"); });
+    if (on) { lastSentZero = false; move(); }
+  });
+  document.querySelectorAll("#speed button").forEach(function (b) {
+    b.addEventListener("click", function () {
+      document.querySelectorAll("#speed button").forEach(function (x) { x.classList.toggle("sel", x === b); });
+      speed = +b.getAttribute("data-s");
+    });
+  });
+
+  // hold-to-move buttons (touch and mouse)
+  document.querySelectorAll(".btn[data-k]").forEach(function (b) {
+    var k = b.getAttribute("data-k");
+    function down(e) { e.preventDefault(); if (!on) { status("Press Start first."); return; } held[k] = true; b.classList.add("on"); if (b.setPointerCapture && e.pointerId != null) b.setPointerCapture(e.pointerId); move(); }
+    function up() { if (held[k]) { delete held[k]; b.classList.remove("on"); move(); } }
+    b.addEventListener("pointerdown", down);
+    b.addEventListener("pointerup", up);
+    b.addEventListener("pointercancel", up);
+    b.addEventListener("lostpointercapture", up);
+    b.addEventListener("contextmenu", function (e) { e.preventDefault(); });
+  });
+
+  // keyboard
+  var KEYS = {ArrowUp: "f", w: "f", ArrowDown: "b", s: "b", ArrowLeft: "l", a: "l", ArrowRight: "r", d: "r", r: "hu", f: "hd", t: "au", g: "ad"};
+  document.addEventListener("keydown", function (e) {
+    if (e.key === " ") { e.preventDefault(); $("stopBtn").click(); return; }
+    var k = KEYS[e.key] || KEYS[(e.key || "").toLowerCase()];
+    if (!k || !on) return;
+    e.preventDefault();
+    if (!held[k]) { held[k] = true; move(); }
+  });
+  document.addEventListener("keyup", function (e) {
+    var k = KEYS[e.key] || KEYS[(e.key || "").toLowerCase()];
+    if (k && held[k]) { delete held[k]; move(); }
+  });
+
+  // leaving the page or switching apps = stop
+  document.addEventListener("visibilitychange", function () { if (document.hidden && on) stop(); });
+  window.addEventListener("pagehide", function () { if (on) stop(); });
+})();
+</script>
+</body>
+</html>
