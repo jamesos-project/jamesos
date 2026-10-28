@@ -41,6 +41,40 @@ body{min-height:100vh;overscroll-behavior:none}
 .main{width:100%;height:54px;border:0;border-radius:27px;background:var(--gold);color:var(--gold-ink);font:inherit;font-weight:600;font-size:17px;margin-top:18px;cursor:pointer}
 .main.quiet{background:none;border:1px solid var(--edge);color:var(--text);font-weight:500}
 .note{margin:14px 2px 0;font-size:13px;color:var(--faint);line-height:1.5}
+.say{margin-top:22px;background:var(--panel);border-radius:var(--r-lg);padding:16px}
+.say h2{margin:0 0 10px;font-size:17px;font-weight:600}
+.sayrow{display:flex;gap:8px}
+.sayrow input{flex:1;min-width:0;height:48px;border:1px solid var(--edge);border-radius:var(--r-md);background:var(--graphite);
+  color:var(--text);font:inherit;padding:0 14px}
+.sayrow input:focus{outline:2px solid var(--gold);outline-offset:-1px}
+.sayrow button{height:48px;padding:0 20px;border:0;border-radius:var(--r-md);background:var(--gold);color:var(--gold-ink);
+  font:inherit;font-weight:600;cursor:pointer}
+.sayrow button:disabled{opacity:.5}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.chips button{height:38px;padding:0 14px;border:0;border-radius:19px;background:var(--raised);color:var(--text);font:inherit;font-size:14px;cursor:pointer}
+.chips button:active{background:var(--gold);color:var(--gold-ink)}
+.chips:empty{display:none}
+.say .seg{background:var(--graphite)}
+.chips.recent button{background:none;border:1px solid var(--edge);color:var(--muted)}
+.chips.recent button.wipe{width:38px;padding:0;font-size:18px;line-height:1}
+.saystat{margin:10px 2px 0;font-size:14px;color:var(--muted);min-height:20px}
+.saystat.bad{color:var(--bad)}
+.hush{margin-top:10px;width:100%;height:44px;border:1px solid var(--edge);border-radius:22px;background:none;color:var(--text);font:inherit;cursor:pointer}
+.hush[hidden]{display:none}
+.seen{position:absolute;left:10px;top:10px;padding:6px 12px;border-radius:16px;background:rgba(22,24,27,.82);color:var(--text);font-size:14px;font-weight:600}
+.seen[hidden]{display:none}
+.faces{margin-top:22px;background:var(--panel);border-radius:var(--r-lg);padding:16px}
+.faces h2{margin:0 0 4px;font-size:17px;font-weight:600}
+.faces .hint{margin:0 0 12px;font-size:13px;color:var(--muted);line-height:1.5}
+.flist{list-style:none;margin:0 0 14px;padding:0}
+.flist li{display:flex;align-items:center;gap:10px;padding:10px 0;border-top:1px solid var(--edge)}
+.flist li:first-child{border-top:0}
+.flist .who{flex:1;min-width:0}
+.flist .who b{display:block;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.flist .who small{color:var(--faint);font-size:13px}
+.flist button{height:36px;padding:0 14px;border:1px solid var(--edge);border-radius:18px;background:none;color:var(--muted);font:inherit;font-size:14px;cursor:pointer}
+.flist button.sure{border-color:var(--bad);color:var(--bad)}
+.flist .none{color:var(--faint);font-size:14px;border:0}
 @media (max-width:380px){.pad{grid-template-columns:repeat(3,62px);grid-template-rows:repeat(3,62px)}}
 </style>
 </head>
@@ -48,7 +82,7 @@ body{min-height:100vh;overscroll-behavior:none}
 <div class="app">
   <header class="top"><a href="#" id="home">‹ JamesOS</a><b>Explore</b><span style="width:60px"></span></header>
 
-  <div class="cam"><img id="cam" alt="What he sees"><div class="msg" id="camMsg">Press Start to see what he sees and drive him.</div></div>
+  <div class="cam"><img id="cam" alt="What he sees"><div class="msg" id="camMsg">Press Start to see what he sees and drive him.</div><div class="seen" id="seen" role="status" hidden></div></div>
   <p class="status" id="status" role="status" aria-live="polite"></p>
 
   <div class="ctl">
@@ -73,7 +107,37 @@ body{min-height:100vh;overscroll-behavior:none}
 
   <div class="row"><label>Speed</label><div class="seg" id="speed"><button data-s="45">Slow</button><button data-s="90" class="sel">Normal</button><button data-s="150">Fast</button></div></div>
 
+  <div class="row"><label>His face</label><div class="seg" id="face"><button data-m="0" class="sel">Eyes</button><button data-m="1">Mirror</button></div></div>
+
   <button class="main" id="go">Start</button>
+
+  <section class="say" aria-label="Say">
+    <h2>Say</h2>
+    <form class="sayrow" id="sayForm" autocomplete="off">
+      <input id="sayText" maxlength="200" placeholder="Type what he should say" enterkeyhint="send" aria-label="What he should say">
+      <button id="sayBtn" type="submit">Say</button>
+    </form>
+    <div class="chips" id="quick">
+      <button type="button">Hi!</button><button type="button">I love you</button><button type="button">Good night</button>
+      <button type="button">Good morning!</button><button type="button">Thank you</button><button type="button">Happy birthday!</button>
+    </div>
+    <div class="chips recent" id="recent"></div>
+    <div class="row"><label>Keep recent</label><div class="seg" id="keep"><button data-k="1">On</button><button data-k="0">Off</button></div></div>
+    <div class="row"><label>Voice</label><div class="seg" id="voice"><button data-v="1" class="sel">Vector</button><button data-v="0">Clear</button></div></div>
+    <button class="hush" id="hush" type="button" hidden>Stop talking</button>
+    <p class="saystat" id="sayStat" role="status" aria-live="polite"></p>
+  </section>
+
+  <section class="faces" id="faces" aria-label="Faces">
+    <h2>Faces</h2>
+    <p class="hint">The people he knows. To meet someone new, type their name and tap Meet.</p>
+    <ul class="flist" id="flist"><li class="none">Looking…</li></ul>
+    <form class="sayrow" id="teachForm" autocomplete="off">
+      <input id="teachName" maxlength="20" placeholder="Their name" aria-label="Their name">
+      <button id="teachBtn" type="submit">Meet</button>
+    </form>
+    <p class="saystat" id="faceStat" role="status" aria-live="polite"></p>
+  </section>
   <p class="note">He keeps his cliff and pick-up reactions while you drive. He stops by himself if you let go or the phone loses Wi-Fi, and goes back to normal when you leave this page. On a computer: arrow keys or WASD, R/F for his head, T/G for his arm, Space to stop.</p>
 </div>
 
@@ -155,6 +219,7 @@ body{min-height:100vh;overscroll-behavior:none}
   }
   function stopLocal() {
     on = false; active = false; held = {};
+    showMirror(false); showSeen(null);
     $("go").textContent = "Start"; $("go").classList.remove("quiet");
     $("camMsg").hidden = false; $("camMsg").textContent = "Press Start to see what he sees and drive him.";
     document.querySelectorAll(".btn.on").forEach(function (b) { b.classList.remove("on"); });
@@ -185,9 +250,188 @@ body{min-height:100vh;overscroll-behavior:none}
     b.addEventListener("contextmenu", function (e) { e.preventDefault(); });
   });
 
-  // keyboard
+
+  // ---- v32 Say: type something and he says it out loud ----
+  var voice = "1", sayPoll = null, recent = [];
+  try { recent = JSON.parse(localStorage.getItem("jamesosSayRecent") || "[]").slice(0, 5); } catch (e) { recent = []; }
+  try { if (localStorage.getItem("jamesosSayVoice") === "0") voice = "0"; } catch (e) {}
+  function sayStat(t, bad) { var s = $("sayStat"); s.textContent = t || ""; s.classList.toggle("bad", !!bad); }
+  var keep = true;
+  try { keep = localStorage.getItem("jamesosSayKeep") !== "0"; } catch (e) {}
+  if (!keep) recent = [];
+  function wipeRecent() {
+    recent = [];
+    try { localStorage.removeItem("jamesosSayRecent"); } catch (e) {}
+    showRecent();
+  }
+  function showRecent() {
+    var box = $("recent"); box.textContent = "";
+    recent.forEach(function (t) {
+      var b = document.createElement("button"); b.type = "button"; b.textContent = t;
+      b.addEventListener("click", function () { say(t); });
+      box.appendChild(b);
+    });
+    if (recent.length) {
+      var x = document.createElement("button"); x.type = "button"; x.className = "wipe"; x.textContent = "×";
+      x.setAttribute("aria-label", "Clear recent");
+      x.addEventListener("click", wipeRecent);
+      box.appendChild(x);
+    }
+  }
+  function talking(yes) {
+    $("hush").hidden = !yes; $("sayBtn").disabled = yes;
+    if (!yes && sayPoll) { clearInterval(sayPoll); sayPoll = null; }
+  }
+  function say(t) {
+    t = (t || "").trim();
+    if (!t) { sayStat("Type something first.", true); return; }
+    sayStat("Sending…");
+    fetch(API + "say", {method: "POST", cache: "no-store", headers: {"Content-Type": "text/plain", "X-JamesOS": "1"}, body: "say " + voice + " " + t})
+      .then(locked).then(function (r) { return r.json().then(function (j) { return {ok: r.ok, j: j}; }); })
+      .then(function (x) {
+        if (!x.ok) { sayStat(x.j.error || "He couldn't say that.", true); return; }
+        sayStat("“" + t + "”"); talking(true);
+        if (keep) {
+          recent = [t].concat(recent.filter(function (o) { return o !== t; })).slice(0, 5);
+          try { localStorage.setItem("jamesosSayRecent", JSON.stringify(recent)); } catch (e) {}
+        }
+        showRecent();
+        var started = Date.now(), seen = false;
+        if (sayPoll) clearInterval(sayPoll);
+        sayPoll = setInterval(function () {
+          fetch(API + "state", {cache: "no-store"}).then(function (r) { return r.json(); }).then(function (j) {
+            if (j.saying) seen = true;
+            if ((!j.saying && (seen || Date.now() - started > 4000)) || Date.now() - started > 60000) { talking(false); sayStat(""); }
+          }).catch(function () {});
+        }, 700);
+      })
+      .catch(function () { sayStat("Can't reach him. Is this phone on his Wi-Fi?", true); });
+  }
+  $("sayForm").addEventListener("submit", function (e) { e.preventDefault(); say($("sayText").value); $("sayText").value = ""; });
+  document.querySelectorAll("#quick button").forEach(function (b) { b.addEventListener("click", function () { say(b.textContent); }); });
+  $("hush").addEventListener("click", function () {
+    fetch(API + "say", {method: "POST", cache: "no-store", headers: {"Content-Type": "text/plain", "X-JamesOS": "1"}, body: "hush"}).catch(function () {});
+    sayStat("Stopping…");
+  });
+  document.querySelectorAll("#voice button").forEach(function (b) {
+    b.classList.toggle("sel", b.getAttribute("data-v") === voice);
+    b.addEventListener("click", function () {
+      voice = b.getAttribute("data-v");
+      document.querySelectorAll("#voice button").forEach(function (x) { x.classList.toggle("sel", x === b); });
+      try { localStorage.setItem("jamesosSayVoice", voice); } catch (e) {}
+    });
+  });
+  document.querySelectorAll("#keep button").forEach(function (b) {
+    b.classList.toggle("sel", (b.getAttribute("data-k") === "1") === keep);
+    b.addEventListener("click", function () {
+      keep = b.getAttribute("data-k") === "1";
+      document.querySelectorAll("#keep button").forEach(function (x) { x.classList.toggle("sel", x === b); });
+      try { localStorage.setItem("jamesosSayKeep", keep ? "1" : "0"); } catch (e) {}
+      if (!keep) wipeRecent();
+    });
+  });
+  showRecent();
+
+  // ---- v32.1 Mirror: his face shows what his camera sees ----
+  var mirror = false;
+  function showMirror(m) {
+    mirror = m;
+    document.querySelectorAll("#face button").forEach(function (x) { x.classList.toggle("sel", (x.getAttribute("data-m") === "1") === m); });
+  }
+  document.querySelectorAll("#face button").forEach(function (b) {
+    b.addEventListener("click", function () {
+      var m = b.getAttribute("data-m") === "1";
+      if (m === mirror) return;
+      showMirror(m);
+      if (m && !on) start();
+      if (on || m) post("mirror " + (m ? "1" : "0")).catch(function () {});
+    });
+  });
+
+  // ---- v32.1 "I see James" on the camera while you drive ----
+  function showSeen(j) {
+    var el2 = $("seen"), names = (j && j.see) || [], n = (j && j.unknown) || 0, t = "";
+    if (on && names.length) t = "I see " + (names.length === 1 ? names[0] : names.slice(0, -1).join(", ") + " and " + names[names.length - 1]);
+    else if (on && n) t = n === 1 ? "I see someone new" : "I see " + n + " people";
+    el2.textContent = t; el2.hidden = !t;
+  }
+  setInterval(function () {
+    if (!on) { showSeen(null); return; }
+    fetch(API + "state", {cache: "no-store"}).then(function (r) { return r.json(); }).then(function (j) {
+      showSeen(j);
+      if (!j.mirror && mirror && !j.on) showMirror(false);
+    }).catch(function () {});
+  }, 600);
+
+  // ---- v32.1 Faces: teach him a face, see who he knows, forget one ----
+  function faceStat(t, bad) { var s = $("faceStat"); s.textContent = t || ""; s.classList.toggle("bad", !!bad); }
+  function ago(sec) {
+    if (sec < 0) return "Not seen yet";
+    if (sec < 120) return "Seen just now";
+    if (sec < 7200) return "Seen " + Math.round(sec / 60) + " minutes ago";
+    if (sec < 172800) return "Seen " + Math.round(sec / 3600) + " hours ago";
+    return "Seen " + Math.round(sec / 86400) + " days ago";
+  }
+  var sureId = 0, sureTimer = null, teachingUntil = 0;
+  function drawFaces(list) {
+    var ul = $("flist"); ul.textContent = "";
+    if (!list.length) {
+      var li0 = document.createElement("li"); li0.className = "none"; li0.textContent = "He hasn't met anyone yet. Type your name below and tap Meet.";
+      ul.appendChild(li0); return;
+    }
+    list.sort(function (a, b) { return a.name.localeCompare(b.name); }).forEach(function (f) {
+      var li = document.createElement("li"), who = document.createElement("div"), b = document.createElement("b"), sm = document.createElement("small"), x = document.createElement("button");
+      who.className = "who"; b.textContent = f.name; sm.textContent = ago(f.seen);
+      who.appendChild(b); who.appendChild(sm);
+      x.type = "button"; x.textContent = sureId === f.id ? "Sure?" : "Forget"; x.classList.toggle("sure", sureId === f.id);
+      x.addEventListener("click", function () {
+        if (sureId !== f.id) {   // tap twice to forget, so nobody is forgotten by accident
+          sureId = f.id; drawFaces(list);
+          clearTimeout(sureTimer); sureTimer = setTimeout(function () { sureId = 0; drawFaces(list); }, 4000);
+          return;
+        }
+        sureId = 0;
+        fetch(API + "face", {method: "POST", cache: "no-store", headers: {"Content-Type": "text/plain", "X-JamesOS": "1"}, body: "forget " + f.id})
+          .then(locked).then(function (r) { if (!r.ok) throw new Error(); faceStat("He forgot " + f.name + "."); setTimeout(loadFaces, 2500); })
+          .catch(function () { faceStat("Couldn't do that. Try again.", true); });
+      });
+      li.appendChild(who); li.appendChild(x); ul.appendChild(li);
+    });
+  }
+  var lastCount = -1;
+  function loadFaces() {
+    fetch(API + "faces", {cache: "no-store"}).then(locked).then(function (r) { return r.json(); }).then(function (j) {
+      var list = j.faces || [];
+      drawFaces(list);
+      if (teachingUntil && lastCount >= 0 && list.length > lastCount) { teachingUntil = 0; faceStat("Done! He knows a new face."); }
+      lastCount = list.length;
+    }).catch(function () {});
+  }
+  $("teachForm").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var n = $("teachName").value.trim();
+    if (!n) { faceStat("Type the person's name first.", true); return; }
+    if (on) { post("stop").catch(function () {}); stopLocal(); status("He stopped exploring to meet someone."); }
+    faceStat("Sending…");
+    fetch(API + "face", {method: "POST", cache: "no-store", headers: {"Content-Type": "text/plain", "X-JamesOS": "1"}, body: "teach " + n})
+      .then(locked).then(function (r) { return r.json().then(function (j) { return {ok: r.ok, j: j}; }); })
+      .then(function (x) {
+        if (!x.ok) { faceStat(x.j.error || "Couldn't do that.", true); return; }
+        $("teachName").value = "";
+        teachingUntil = Date.now() + 120000;
+        faceStat(n + ": look straight at him, about an arm away, and stay still. He'll scan your face and say your name.");
+      })
+      .catch(function () { faceStat("Can't reach him. Is this phone on his Wi-Fi?", true); });
+  });
+  loadFaces();
+  setInterval(function () { if (!document.hidden) loadFaces(); }, 4000);
+  if (location.hash === "#faces") setTimeout(function () { $("faces").scrollIntoView({behavior: "smooth", block: "start"}); }, 200);
+
+  // keyboard (not while typing in the Say box)
+  function typing(e) { var t = e.target; return t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA"); }
   var KEYS = {ArrowUp: "f", w: "f", ArrowDown: "b", s: "b", ArrowLeft: "l", a: "l", ArrowRight: "r", d: "r", r: "hu", f: "hd", t: "au", g: "ad"};
   document.addEventListener("keydown", function (e) {
+    if (typing(e)) return;
     if (e.key === " ") { e.preventDefault(); $("stopBtn").click(); return; }
     var k = KEYS[e.key] || KEYS[(e.key || "").toLowerCase()];
     if (!k || !on) return;
@@ -195,6 +439,7 @@ body{min-height:100vh;overscroll-behavior:none}
     if (!held[k]) { held[k] = true; move(); }
   });
   document.addEventListener("keyup", function (e) {
+    if (typing(e)) return;
     var k = KEYS[e.key] || KEYS[(e.key || "").toLowerCase()];
     if (k && held[k]) { delete held[k]; move(); }
   });

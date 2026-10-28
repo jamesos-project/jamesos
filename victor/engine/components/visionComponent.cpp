@@ -2118,6 +2118,14 @@ namespace Vector {
     _robot->Broadcast( ExternalInterface::MessageEngineToGame( std::move(response) ) );
   }
 
+  std::vector<Vision::LoadedKnownFace> VisionComponent::JamesEnrolledNames()   // JamesOS v32.1
+  {
+    Lock();
+    std::vector<Vision::LoadedKnownFace> faces = _visionSystem->GetEnrolledNames();
+    Unlock();
+    return faces;
+  }
+
   Result VisionComponent::RenameFace(Vision::FaceID_t faceID, const std::string& oldName, const std::string& newName)
   {
     if(oldName == newName)

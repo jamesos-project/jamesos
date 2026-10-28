@@ -235,6 +235,7 @@ button.item:hover{background:var(--raised)}
     <h2 class="group-title">Play</h2>
     <div class="tiles">
       <button class="tile" type="button" id="exploreBtn"><span class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M15.5 8.5l-2 5-5 2 2-5z"/></svg></span><b>Explore</b><small>See what he sees and drive him</small></button>
+      <button class="tile" type="button" id="facesBtn"><span class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3"/><circle cx="12" cy="10" r="2.5"/><path d="M8 17c.8-2 2.2-3 4-3s3.2 1 4 3"/></svg></span><b>Faces</b><small>Who he knows</small></button>
       <button class="tile" type="button" id="photosBtn"><span class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg></span><b>Photos</b><small>Photos he took</small></button>
       <button class="tile" type="button" data-go="game"><span class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M9 3v18M15 3v18M3 9h18M3 15h18"/></svg></span><b>Tic-tac-toe</b><small>Play a game against him</small></button>
       <button class="tile" type="button" data-go="badges"><span class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="9" r="6"/><path d="M8.5 14.2L7 22l5-3 5 3-1.5-7.8"/></svg></span><b>Badges</b><small id="bcount">See what he's unlocked</small></button>
@@ -552,8 +553,8 @@ button.item:hover{background:var(--raised)}
       .catch(function () { $("codeYes").disabled = false; $("codeErr").textContent = "Can't reach your Vector."; });
   });
   // open Explore / Photos (his other web server); unlock first if needed
-  function openOther(page) {
-    var url = "http://" + location.hostname + ":8888/jamesos/" + page + ".html";
+  function openOther(page, hash) {
+    var url = "http://" + location.hostname + ":8888/jamesos/" + page + ".html" + (hash || "");
     if (state && state.unlocked) { location.href = url; return; }
     askCode().then(function () { location.href = url; }).catch(function () {});
   }
@@ -1248,6 +1249,7 @@ button.item:hover{background:var(--raised)}
   // ---- explorer (v31): lives on his other web server (port 8888, next to the camera and wheels) ----
   $("exploreBtn").addEventListener("click", function () { openOther("explore"); });
   $("photosBtn").addEventListener("click", function () { openOther("photos"); });
+  $("facesBtn").addEventListener("click", function () { openOther("explore", "#faces"); });   // v32.1
 
   // coming back from Explore / Photos because this phone needs the code: #unlock-explore, #unlock-photos
   var back = /^#unlock-(explore|photos)$/.exec(location.hash);

@@ -29,6 +29,8 @@
 #include "engine/components/settingsManager.h"
 #include "engine/components/animationComponent.h"
 #include "engine/components/visionComponent.h"
+#include "engine/faceWorld.h"                    // JamesOS v32.1 face scan
+#include "coretech/vision/engine/trackedFace.h"
 #include "engine/components/visionScheduleMediator/visionScheduleMediator.h"
 #include "engine/cozmoContext.h"
 #include "engine/robot.h"
@@ -74,9 +76,18 @@ struct State {
   long long lastSeenMs = 0, lastMoveMs = 0;
   float l = 0.f, r = 0.f, head = 0.f, lift = 0.f;
   std::vector<u8> jpeg;
+  std::string sayText;              // v32 Say: waiting to be spoken
+  bool sayVector = true, sayHush = false;
+  bool mirror = false;               // v32.1 Mirror: his face shows his camera
+  std::string teachName;             // v32.1 Face scan: meet this person next
+  int forgetId = 0;
+  long long teachAskMs = 0, facesAskMs = -100000;
+  std::string facesJson = "[]", seeJson = "[]";
+  int unknownSeen = 0;
 };
 State gState;
 std::atomic<bool> gActive{false};   // engine thread: control taken and the SDK behavior is running
+std::atomic<bool> gSaying{false};   // v32 Say: he's talking
 std::atomic<bool> gBusy{false};     // an SDK program already has control
 
 long long NowMs()
@@ -113,13 +124,19 @@ void Reply(struct mg_connection* conn, int code, const std::string& type, const 
 
 std::string StateJson()
 {
-  bool want;
+  bool want, mirror;
+  std::string see;
+  int unknown;
   {
     std::lock_guard<std::mutex> lk(gState.m);
     want = gState.want;
+    mirror = gState.mirror;
+    see = gState.seeJson;
+    unknown = gState.unknownSeen;
   }
   return std::string("{\"on\":") + (want ? "true" : "false") + ",\"active\":" + (gActive ? "true" : "false") +
-         ",\"busy\":" + (gBusy ? "true" : "false") + "}";
+         ",\"busy\":" + (gBusy ? "true" : "false") + ",\"saying\":" + (gSaying ? "true" : "false") +
+         ",\"mirror\":" + (mirror ? "true" : "false") + ",\"see\":" + see + ",\"unknown\":" + std::to_string(unknown) + "}";
 }
 
 int Handle(struct mg_connection* conn, void* /*cbdata*/)
@@ -180,7 +197,11 @@ int Handle(struct mg_connection* conn, void* /*cbdata*/)
         gState.want = true;
       } else if (body.rfind("stop", 0) == 0) {
         gState.want = false;
+        gState.mirror = false;
         gState.l = gState.r = gState.head = gState.lift = 0.f;
+      } else if (body.rfind("mirror ", 0) == 0) {   // v32.1: "mirror 1" | "mirror 0"
+        gState.mirror = body.size() > 7 && body[7] == '1';
+        if (gState.mirror) { gState.want = true; }
       } else if (body.rfind("move ", 0) == 0) {
         float l = 0.f, r = 0.f, h = 0.f, t = 0.f;
         if (std::sscanf(body.c_str() + 5, "%f %f %f %f", &l, &r, &h, &t) != 4) {
@@ -198,6 +219,100 @@ int Handle(struct mg_connection* conn, void* /*cbdata*/)
       }
     }
     Reply(conn, 200, "application/json", StateJson());
+    return 1;
+  }
+  if (uri == "/jamesos/drive/faces" && method == "GET") {   // v32.1: the faces he knows
+    std::string list;
+    bool teaching;
+    {
+      std::lock_guard<std::mutex> lk(gState.m);
+      gState.facesAskMs = now;
+      list = gState.facesJson;
+      teaching = !gState.teachName.empty();
+    }
+    Reply(conn, 200, "application/json", "{\"faces\":" + list + ",\"teaching\":" + (teaching ? "true" : "false") + "}");
+    return 1;
+  }
+  if (uri == "/jamesos/drive/face" && method == "POST") {   // v32.1: "teach NAME" | "forget ID"
+    const char* mark = mg_get_header(conn, "X-JamesOS");
+    const char* origin = mg_get_header(conn, "Origin");
+    const char* host = mg_get_header(conn, "Host");
+    if (mark == nullptr || std::string(mark) != "1" ||
+        (origin != nullptr && std::string(origin) != std::string("http://") + host)) {
+      Reply(conn, 403, "application/json", "{\"error\":\"not allowed\"}");
+      return 1;
+    }
+    std::string body;
+    char fb[128];
+    while (body.size() < 200) {
+      const int rd = mg_read(conn, fb, sizeof(fb));
+      if (rd <= 0) { break; }
+      body.append(fb, (size_t)rd);
+    }
+    std::lock_guard<std::mutex> lk(gState.m);
+    if (body.rfind("teach ", 0) == 0) {
+      std::string n;   // letters (any language), numbers, spaces, - and '
+      for (const char ch : body.substr(6)) {
+        const unsigned char c = (unsigned char)ch;
+        if (c >= 0x80 || (c >= '0' && c <= '9') || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '-' || c == '\'') { n += ch; }
+        else if (c == ' ' && !n.empty() && n.back() != ' ') { n += ' '; }
+      }
+      while (!n.empty() && n.back() == ' ') { n.pop_back(); }
+      if (n.empty() || n.size() > 40) { Reply(conn, 400, "application/json", "{\"error\":\"Use a name with letters, up to 20 letters.\"}"); return 1; }
+      if (!gState.teachName.empty()) { Reply(conn, 400, "application/json", "{\"error\":\"He's already getting ready to meet someone.\"}"); return 1; }
+      gState.teachName = n;
+      gState.teachAskMs = now;
+    } else if (body.rfind("forget ", 0) == 0) {
+      int id = 0;
+      if (std::sscanf(body.c_str() + 7, "%d", &id) != 1 || id <= 0) { Reply(conn, 400, "application/json", "{\"error\":\"bad face\"}"); return 1; }
+      gState.forgetId = id;
+    } else {
+      Reply(conn, 400, "application/json", "{\"error\":\"bad request\"}");
+      return 1;
+    }
+    Reply(conn, 200, "application/json", "{\"ok\":true}");
+    return 1;
+  }
+  if (uri == "/jamesos/drive/say" && method == "POST") {   // v32: "say V <text>" | "hush"   (V: 1 Vector voice, 0 clear)
+    const char* mark = mg_get_header(conn, "X-JamesOS");
+    const char* origin = mg_get_header(conn, "Origin");
+    const char* host = mg_get_header(conn, "Host");
+    if (mark == nullptr || std::string(mark) != "1" ||
+        (origin != nullptr && std::string(origin) != std::string("http://") + host)) {
+      Reply(conn, 403, "application/json", "{\"error\":\"not allowed\"}");
+      return 1;
+    }
+    std::string body;
+    char sb[256];
+    while (body.size() < 700) {
+      const int rd = mg_read(conn, sb, sizeof(sb));
+      if (rd <= 0) { break; }
+      body.append(sb, (size_t)rd);
+    }
+    std::lock_guard<std::mutex> lk(gState.m);
+    if (body == "hush") {
+      gState.sayHush = true;
+    } else if (body.rfind("say ", 0) == 0 && body.size() > 6) {
+      if (gSaying || !gState.sayText.empty()) { Reply(conn, 400, "application/json", "{\"error\":\"He's still talking.\"}"); return 1; }
+      std::string t;   // control characters become spaces; UTF-8 letters stay
+      for (const char ch : body.substr(6)) { t += ((unsigned char)ch < 32 || ch == 127) ? ' ' : ch; }
+      while (!t.empty() && t.back() == ' ') { t.pop_back(); }
+      size_t a = 0;
+      while (a < t.size() && t[a] == ' ') { ++a; }
+      t = t.substr(a);
+      if (t.empty()) { Reply(conn, 400, "application/json", "{\"error\":\"Type something first.\"}"); return 1; }
+      if (t.size() > 300) {   // cut at a whole UTF-8 letter
+        size_t cut = 300;
+        while (cut > 0 && ((unsigned char)t[cut] & 0xC0) == 0x80) { --cut; }
+        t = t.substr(0, cut);
+      }
+      gState.sayText = t;
+      gState.sayVector = body[4] != '0';
+    } else {
+      Reply(conn, 400, "application/json", "{\"error\":\"bad request\"}");
+      return 1;
+    }
+    Reply(conn, 200, "application/json", "{\"ok\":true}");
     return 1;
   }
   Reply(conn, 404, "application/json", "{\"error\":\"not found\"}");
@@ -230,6 +345,145 @@ void SDKComponent::JamesExploreUpdate()
     if (!want) { gState.jpeg.clear(); }
   }
   auto* ei = _robot->GetContext()->GetExternalInterface();
+
+  // v32.1 Mirror + Face scan (engine thread)
+  {
+    static bool mirrorOn = false, facesOn = false;
+    static long long lastSeeMs = 0, lastListMs = -100000;
+    bool mirrorWant = false, teachNow = false;
+    std::string teach;
+    int forget = 0;
+    long long facesAsk = 0;
+    {
+      std::lock_guard<std::mutex> lk(gState.m);
+      if (!gState.want) { gState.mirror = false; }   // Mirror ends with Explore
+      mirrorWant = gState.mirror;
+      forget = gState.forgetId;
+      gState.forgetId = 0;
+      facesAsk = gState.facesAskMs;
+      if (!gState.teachName.empty()) {
+        if (_jamesExploreOn) {
+          gState.want = false;    // he can't be driven and meet someone at the same time
+          gState.mirror = false;
+        } else if (!_sdkBehaviorActivated) {
+          teach.swap(gState.teachName);
+          teachNow = true;
+        } else if (now - gState.teachAskMs > 15000) {
+          gState.teachName.clear();
+        }
+      }
+    }
+    const bool wantFaces = _jamesExploreOn;   // look for faces while you drive ("I see James")
+    if (wantFaces != facesOn) {
+      SubscribeToVisionMode(wantFaces, VisionMode::Faces, false);
+      facesOn = wantFaces;
+    }
+    const bool wantMirror = _jamesExploreOn && _sdkBehaviorActivated && mirrorWant;
+    if (wantMirror != mirrorOn) {
+      SubscribeToVisionMode(wantMirror, VisionMode::MirrorMode, false);
+      mirrorOn = wantMirror;
+      LOG_INFO("SDKComponent.JamesMirror", "Mirror %s", wantMirror ? "on" : "off");
+    }
+    if (forget > 0) {
+      const Result res = _robot->GetVisionComponent().EraseFace((Vision::FaceID_t)forget);
+      LOG_INFO("SDKComponent.JamesFaces", "forget face %d from the phone: %s", forget, res == RESULT_OK ? "done" : "failed");
+      lastListMs = -100000;
+    }
+    if (teachNow && ei != nullptr) {
+      ExternalInterface::AppIntent intent;
+      intent.intent = "intent_meet_victor";   // the same "meet" the Vector app starts
+      intent.param = teach;
+      ei->Broadcast(ExternalInterface::MessageGameToEngine(std::move(intent)));
+      LOG_INFO("SDKComponent.JamesFaces", "meet a new face from the phone (%zu letters)", teach.size());
+    }
+    if (now - facesAsk < 15000 && now - lastListMs > 2000) {
+      lastListMs = now;
+      auto esc = [](const std::string& in) {
+        std::string o;
+        for (const char ch : in) {
+          if (ch == '"' || ch == '\\') { o += '\\'; o += ch; }
+          else if ((unsigned char)ch < 32) { o += ' '; }
+          else { o += ch; }
+        }
+        return o;
+      };
+      std::string js = "[";
+      for (const auto& f : _robot->GetVisionComponent().JamesEnrolledNames()) {
+        if (js.size() > 1) { js += ","; }
+        js += "{\"id\":" + std::to_string(f.faceID) + ",\"name\":\"" + esc(f.name) + "\",\"seen\":" +
+              std::to_string((long long)f.secondsSinceLastSeen) + "}";
+      }
+      js += "]";
+      std::lock_guard<std::mutex> lk(gState.m);
+      gState.facesJson = js;
+    }
+    if (_jamesExploreOn && now - lastSeeMs > 300) {
+      lastSeeMs = now;
+      const RobotTimeStamp_t imgT = _robot->GetLastImageTimeStamp();
+      const auto ids = _robot->GetFaceWorld().GetFaceIDs(imgT > 1500 ? imgT - 1500 : 0);
+      std::vector<std::string> names;
+      int unknown = 0;
+      for (const auto id : ids) {
+        const Vision::TrackedFace* f = _robot->GetFaceWorld().GetFace(id);
+        if (f == nullptr) { continue; }
+        if (f->HasName()) { names.push_back(f->GetName()); } else { ++unknown; }
+      }
+      std::string js = "[";
+      for (const auto& n : names) {
+        if (js.size() > 1) { js += ","; }
+        js += "\"";
+        for (const char ch : n) { if (ch != '"' && ch != '\\' && (unsigned char)ch >= 32) { js += ch; } }
+        js += "\"";
+      }
+      js += "]";
+      std::lock_guard<std::mutex> lk(gState.m);
+      gState.seeJson = js;
+      gState.unknownSeen = unknown;
+    } else if (!_jamesExploreOn) {
+      std::lock_guard<std::mutex> lk(gState.m);
+      gState.seeJson = "[]";
+      gState.unknownSeen = 0;
+    }
+  }
+
+  // v32 Say: the phone's text is spoken here, on the engine thread (same way as the SDK's say_text)
+  {
+    std::string sayText;
+    bool sayVector = true, hush = false;
+    {
+      std::lock_guard<std::mutex> lk(gState.m);
+      sayText.swap(gState.sayText);
+      sayVector = gState.sayVector;
+      hush = gState.sayHush;
+      gState.sayHush = false;
+    }
+    auto& tts = _robot->GetTextToSpeechCoordinator();
+    static uint8_t sayId = kInvalidUtteranceID;
+    static bool hushWaiting = false;
+    static long long sayStartMs = 0;
+    if (hush && gSaying) { hushWaiting = true; }
+    if (sayId != kInvalidUtteranceID) {
+      const UtteranceState st = tts.GetUtteranceState(sayId);
+      if (hushWaiting && (st == UtteranceState::Ready || st == UtteranceState::Playing)) {
+        tts.CancelUtterance(sayId);   // (not while Generating: that would make the engine wait)
+        LOG_INFO("SDKComponent.JamesSay", "stopped from the phone");
+      }
+      if (st == UtteranceState::Invalid || st == UtteranceState::Finished ||
+          (hushWaiting && st != UtteranceState::Generating) || now - sayStartMs > 60000) {
+        sayId = kInvalidUtteranceID;
+        hushWaiting = false;
+        gSaying = false;
+      }
+    }
+    if (!sayText.empty() && sayId == kInvalidUtteranceID) {
+      using Style = AudioMetaData::SwitchState::Robot_Vic_External_Processing;
+      sayId = tts.CreateUtterance(sayText, UtteranceTriggerType::Immediate,
+                                  sayVector ? Style::Default_Processed : Style::Unprocessed);
+      gSaying = sayId != kInvalidUtteranceID;
+      sayStartMs = now;
+      LOG_INFO("SDKComponent.JamesSay", "saying %zu letters from the phone%s", sayText.size(), gSaying ? "" : " (failed)");
+    }
+  }
 
   if (want && !_jamesExploreOn) {
     if (_sdkWantsControl || _sdkWantsLock) {   // an SDK program is already driving him: don't fight it
