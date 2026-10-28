@@ -982,6 +982,7 @@ static void JamesUnlockNow(const char* key)
 }
 
 // about every 2 seconds (from JamesMoodHue)
+
 static void JamesRefreshRare()
 {
   const int today = gJamesDateKey;
@@ -2661,6 +2662,7 @@ bool ProceduralFaceDrawer::ApplyJamesExtras(Vision::ImageRGB565& output, bool di
       drew = true;
     }
   }
+
 
   return drew ? true : dirty;
 }

@@ -1,0 +1,6 @@
+    // >>> JamesOS family meeting, engine (begin)
+#ifndef JAMESOS_PRIVATE
+#define JAMESOS_PRIVATE 0
+#endif
+    // <<< JamesOS family meeting, engine (end)
+

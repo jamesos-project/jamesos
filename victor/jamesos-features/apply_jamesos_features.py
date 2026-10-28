@@ -1148,4 +1148,54 @@ if mem31 not in sh:
     write(SET_H, sh)
 print("[31] Eye color + volume from the phone page")
 
+# ------------------------------------------------------------------ [32] family over Wi-Fi + face-to-face meetings (v32, private)
+# vic-anim: the robots find each other on the Wi-Fi (in the face code, inside #if JAMESOS_PRIVATE).
+# vic-engine: the time-of-flight sensor says when something is right in front (settingsManager.cpp), and the
+# camera looks for a sibling's code during a meeting (visionSystem.cpp). Both only compiled into private builds.
+def priv(code):
+    return code.replace("#define JAMESOS_PRIVATE 0", "#define JAMESOS_PRIVATE 1", 1) if JAMESOS_PRIVATE else code
+def put_block(path, code, begin, end, anchor):
+    t = read(path)
+    if begin in t:
+        a = t.index(begin); b = t.index(end, a) + len(end)
+        t = t[:a] + code.rstrip("\n") + "\n" + t[b:]
+    else:
+        must_have(t, anchor, path)
+        t = t.replace(anchor, code + anchor, 1)
+    return t
+def add_once(t, marker, anchor, text, path):
+    if marker in t:
+        return t
+    must_have(t, anchor, path)
+    return t.replace(anchor, anchor + text, 1)
+
+DR_CPP = "cannedAnimLib/proceduralFace/proceduralFaceDrawer.cpp"
+dr = read(DR_CPP)
+dr = add_once(dr, "// JamesOS v32 family", "#include <random>\n",
+              "#include <sstream>  // JamesOS v32 family\n#include <thread>\n#include <sys/socket.h>\n#include <sys/stat.h>\n"
+              "#include <sys/time.h>\n#include <netinet/in.h>\n#include <arpa/inet.h>\n#include <unistd.h>\n", DR_CPP)
+write(DR_CPP, dr)
+
+sm = put_block(SET_CPP, priv(piece("meet_engine_code.cpp.txt")),
+               "    // >>> JamesOS family meeting, engine (begin)", "    // <<< JamesOS family meeting, engine (end)\n",
+               "    // >>> JamesOS phone settings (begin)")
+sm = add_once(sm, "// JamesOS v32 family meeting", '#include "engine/robot.h"\n',
+              '#include "engine/components/sensors/proxSensorComponent.h" // JamesOS v32 family meeting\n'
+              '#include "engine/components/movementComponent.h"\n', SET_CPP)
+sm = add_once(sm, "      JamesMeetNearTick(_robot);", "      JamesPhoneSettings(); // JamesOS v31b: eye color + volume from the phone page\n",
+              "#if JAMESOS_PRIVATE\n      JamesMeetNearTick(_robot); // JamesOS v32 family meeting\n#endif\n", SET_CPP)
+write(SET_CPP, sm)
+
+VS_CPP = "engine/vision/visionSystem.cpp"
+vs = put_block(VS_CPP, priv(piece("meet_vision_code.cpp.txt")),
+               "// >>> JamesOS family meeting, camera (begin)", "// <<< JamesOS family meeting, camera (end)\n",
+               "Result VisionSystem::Update(const VisionPoseData& poseData, Vision::ImageCache& imageCache)\n")
+vs = add_once(vs, "// JamesOS v32 family meeting", '#include "coretech/vision/engine/markerDetector.h"\n',
+              '#include <opencv2/objdetect/aruco_detector.hpp> // JamesOS v32 family meeting\n'
+              '#include <fstream>\n#include <chrono>\n#include <cstdio>\n#include <sys/stat.h>\n', VS_CPP)
+vs = add_once(vs, "  JamesMeetVision(imageCache);", "  _frameNumber++;\n",
+              "#if JAMESOS_PRIVATE\n  JamesMeetVision(imageCache); // JamesOS v32 family meeting\n#endif\n", VS_CPP)
+write(VS_CPP, vs)
+print("[32] Family over Wi-Fi + face-to-face meetings" + ("" if JAMESOS_PRIVATE else " (left out: private extras are off)"))
+
 print("\nAll done. Next: ./jamesos.sh go   (builds + deploys)")

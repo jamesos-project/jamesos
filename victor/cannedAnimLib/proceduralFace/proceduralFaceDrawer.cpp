@@ -29,6 +29,14 @@
 #include <cstdlib>
 #include <fstream>
 #include <random>
+#include <sstream>  // JamesOS v32 family
+#include <thread>
+#include <sys/socket.h>
+#include <sys/stat.h>
+#include <sys/time.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <unistd.h>
 #include <string>
 #include <vector>
 #include <sys/stat.h>
@@ -2016,6 +2024,7 @@ static void JamesUnlockNow(const char* key)
 }
 
 // about every 2 seconds (from JamesMoodHue)
+
 static void JamesRefreshRare()
 {
   const int today = gJamesDateKey;
@@ -3695,6 +3704,7 @@ bool ProceduralFaceDrawer::ApplyJamesExtras(Vision::ImageRGB565& output, bool di
       drew = true;
     }
   }
+
 
   return drew ? true : dirty;
 }

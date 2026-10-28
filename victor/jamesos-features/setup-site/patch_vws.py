@@ -192,6 +192,11 @@ a { color: var(--jos-gold); }
   display: grid; grid-template-columns: repeat(4, 1fr); gap: 28px; }
 .jos-features b { display: block; font-weight: 500; font-size: 16px; margin-bottom: 4px; }
 .jos-features span { color: var(--jos-muted); font-size: 14px; line-height: 1.45; }
+.jos-mark { width: 28px; height: 28px; vertical-align: -7px; margin-right: 8px; }
+.jos-new { margin: 40px 0 0; padding: 24px; background: var(--jos-panel); border-radius: 22px; }
+.jos-new h2 { margin: 0 0 12px; font-size: 18px; font-weight: 500; color: var(--jos-text); }
+.jos-new ul { margin: 0; padding-left: 20px; color: var(--jos-muted); font-size: 15px; line-height: 1.7; }
+.jos-new li::marker { color: var(--jos-gold); }
 .jos-credits { margin: 0; background: var(--jos-panel); border-radius: 22px; overflow: hidden; }
 .jos-credits > div { display: grid; grid-template-columns: 190px 1fr; gap: 16px; padding: 16px 20px; border-top: 1px solid var(--jos-edge); }
 .jos-credits > div:first-child { border-top: 0; }

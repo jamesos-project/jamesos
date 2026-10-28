@@ -16,6 +16,8 @@
 #include "engine/components/robotHealthReporter.h"
 #include "engine/components/settingsCommManager.h"
 #include "engine/robot.h"
+#include "engine/components/sensors/proxSensorComponent.h" // JamesOS v32 family meeting
+#include "engine/components/movementComponent.h"
 #include "engine/robotDataLoader.h"
 #include "engine/robotInterface/messageHandler.h"
 
@@ -48,6 +50,12 @@ namespace Anki
 
       const size_t kMaxTicksToClear = 3;
     }
+
+    // >>> JamesOS family meeting, engine (begin)
+#ifndef JAMESOS_PRIVATE
+#define JAMESOS_PRIVATE 0
+#endif
+    // <<< JamesOS family meeting, engine (end)
 
     // >>> JamesOS phone settings (begin)
     // v31b: eye color and volume from the phone page. The page runs in vic-anim, but these are his real

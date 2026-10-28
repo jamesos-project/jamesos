@@ -1,0 +1,6 @@
+// >>> JamesOS family meeting, camera (begin)
+#ifndef JAMESOS_PRIVATE
+#define JAMESOS_PRIVATE 0
+#endif
+// <<< JamesOS family meeting, camera (end)
+

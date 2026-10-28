@@ -45,6 +45,8 @@
 #   ./jamesos.sh private on|off   James's own extras in the build (Vector family, prototype)
 #   ./jamesos.sh prototype on|off mark this robot as a prototype (private extra)
 #   ./jamesos.sh family [name ROBOT NAME him|her|them | miss ROBOT on|off]   family names (private)
+#   ./jamesos.sh family push [ROBOT]   v32: tell each family robot who he is - then they find each other on the
+#                              Wi-Fi by themselves (no PC needed) and can meet face to face (private)
 #   ./jamesos.sh badges        which badges (achievements) he has unlocked
 #   ./jamesos.sh badges reset  delete all badges + pet stats (they survive CLEAR OUT SOUL otherwise)
 #   ./jamesos.sh badges restore  put saved badges + missing JamesOS settings back (after an old-style reset)
@@ -81,7 +83,7 @@ set -e
 cd "$(dirname "$0")"
 
 # the JamesOS version name (shown on Vector's info screen as "OS: JamesOS v21")
-JAMESOS_RELEASE="v31.1"
+JAMESOS_RELEASE="v31.2"
 
 if [[ "$1" == "use" ]]; then
   # ./jamesos.sh use 1.0   (a name from ./jamesos.sh find)   or   ./jamesos.sh use 192.168.0.116
@@ -521,6 +523,30 @@ case "$1" in
         read -r N P _ <<< "$(fam_line "$R")"
         { awk -v r="$R" '$1!=r' "$FAMILY"; echo "$R $N $P $M"; } > "$FAMILY.tmp" && mv "$FAMILY.tmp" "$FAMILY"
         echo "Others miss $R: $4" ;;
+      push)
+        # v32: each family robot gets /data/data/jamesos/family.me ("ESN NAME PRONOUN MISS TAG") and the
+        # family key. Then they say hello to each other on the Wi-Fi by themselves.
+        KEYF=jamesos/family.key
+        [[ -s "$KEYF" ]] || head -c 8 /dev/urandom | od -An -tx1 | tr -d ' \n' > "$KEYF"
+        FKEY=$(cat "$KEYF")
+        TAG=0; DONE=0
+        while read -r RIP R <&3; do
+          [[ -z "$R" ]] && continue
+          case "$(echo "$R" | tr 'a-z' 'A-Z')" in 1.0) echo "  $R: runs the public JamesOS (no family) - skipped"; continue ;; esac
+          TAG=$((TAG + 1)); [[ $TAG -le 9 ]] || { echo "  (only 9 robots can have a family code - $R left out)"; continue; }
+          [[ -n "$3" && "$3" != "$R" ]] && continue
+          read -r N P M <<< "$(fam_line "$R")"
+          ESN=$(rssh "$RIP" "emr-cat e 2>/dev/null" 2>/dev/null | tr -cd '0-9a-fA-F' | tr 'a-f' 'A-F')
+          [[ -n "$ESN" ]] || { echo "  $R ($RIP): can't reach him or read his serial number - skipped"; continue; }
+          if rssh "$RIP" "mkdir -p /data/data/jamesos && echo '$ESN $N $P $M $TAG' > /data/data/jamesos/family.me && echo '$FKEY' > /data/data/jamesos/family.key && chmod 644 /data/data/jamesos/family.me /data/data/jamesos/family.key"; then
+            echo "  $R ($RIP): now knows he is $N ($P), family code $TAG"; DONE=$((DONE + 1))
+          else
+            echo "  $R ($RIP): couldn't write to him - skipped"
+          fi
+        done 3< <(robot_list)
+        [[ $DONE -gt 0 ]] || { echo "Nobody was told - are they on? (./jamesos.sh robots)"; exit 1; }
+        echo "Done. Within a minute they say hello to each other on the Wi-Fi (no PC needed)."
+        echo "Face to face: put two of them nose to nose, 5-25 cm apart, both awake and not driving." ;;
       *)
         echo "Your Vector family (robot / name / him-her-them / missed when away):"
         for r in $(robot_list | awk '$2 != "" {print $2}'); do read -r N P M <<< "$(fam_line "$r")"; echo "  $r  $N  $P  $([[ $M == 1 ]] && echo yes || echo no)"; done
@@ -966,6 +992,10 @@ PY
     echo "== 2/5 Private extras OFF =="
     DR="$VB/cannedAnimLib/proceduralFace/proceduralFaceDrawer.cpp"
     sed -i 's/^#define JAMESOS_PRIVATE 1/#define JAMESOS_PRIVATE 0/' "$DR"
+    # v32: the family meeting parts in vic-engine are private too
+    for PF in "$VB/engine/components/settingsManager.cpp" "$VB/engine/vision/visionSystem.cpp"; do
+      [[ -f "$PF" ]] && sed -i 's/^#define JAMESOS_PRIVATE 1$/#define JAMESOS_PRIVATE 0/' "$PF"
+    done
     if ! grep -q '^#define JAMESOS_PRIVATE 0' "$DR" || grep -q '^#define JAMESOS_PRIVATE 1' "$DR"; then
       echo "Couldn't turn the private extras off - stopping, nothing was built."; exit 1
     fi

@@ -161,6 +161,33 @@ button.item:hover{background:var(--raised)}
 .linkbtn{border:0;background:none;color:var(--gold);font-size:14px;font-weight:500;padding:4px}
 .check{display:flex;align-items:center;gap:10px;font-size:15px;color:var(--muted);margin:2px 0 4px}
 .check input{width:22px;height:22px;accent-color:var(--gold)}
+/* home: grouped tiles */
+.tiles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.tile{position:relative;display:flex;flex-direction:column;align-items:flex-start;gap:10px;width:100%;min-height:118px;padding:14px;border:0;border-radius:var(--r-md);background:var(--panel);text-align:left}
+.tile:hover{background:var(--raised)}
+.tile .ic{width:38px;height:38px;border-radius:var(--r-sm);background:var(--gold-tint);color:var(--gold);display:flex;align-items:center;justify-content:center}
+.tile b{font-weight:500;font-size:16px;line-height:1.2}
+.tile small{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;margin-top:-6px;font-size:13px;line-height:1.35;color:var(--muted);overflow:hidden;max-width:100%}
+.tiles > :last-child:nth-child(odd){grid-column:1 / -1}
+.tile-wrap{position:relative}
+.tile-pill{position:absolute;top:12px;right:12px;height:32px;padding:0 12px;font-size:13px}
+@media (min-width:900px){
+  .app:has(#page-home:not([hidden])){max-width:920px}
+  .tiles{grid-template-columns:repeat(auto-fit,minmax(180px,1fr))}
+  .tiles > :last-child:nth-child(odd){grid-column:auto}
+}
+/* tic-tac-toe */
+.score{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin:18px 0}
+.score div{background:var(--panel);border-radius:var(--r-md);padding:12px;text-align:center}
+.score b{display:block;font-size:26px;font-weight:600}
+.score small{color:var(--muted);font-size:13px}
+.board{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;max-width:360px;margin:0 auto}
+.board button{aspect-ratio:1;border:0;border-radius:var(--r-md);background:var(--panel);font-size:44px;font-weight:600;line-height:1}
+.board button:disabled{cursor:default}
+.board button.x{color:var(--text)}.board button.o{color:var(--gold)}
+.board button.win{background:var(--gold-tint)}
+.gmsg{text-align:center;font-size:20px;margin:20px 0 6px;min-height:28px}
+.gsub{text-align:center;color:var(--muted);font-size:14px;margin:0 0 18px}
 </style>
 </head>
 <body>
@@ -181,55 +208,33 @@ button.item:hover{background:var(--raised)}
       <ul class="facts" id="facts"></ul>
     </section>
 
-    <ul class="list" aria-label="Settings">
-      <li><button class="item" type="button" data-go="customize">
-        <span class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></svg></span>
-        <span class="tx"><b>Customize</b><small>Eyes, stars, holidays, lights</small></span>
-        <svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button></li>
-      <li><button class="item" type="button" data-go="eyes">
-        <span class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="7" width="7" height="10" rx="2.5"/><rect x="14" y="7" width="7" height="10" rx="2.5"/></svg></span>
-        <span class="tx"><b>Eye color</b><small id="ehint">His colors and your own</small></span>
-        <svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button></li>
-      <li><div class="split"><button class="item" type="button" data-go="sound">
-        <span class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M16.5 8.5a5 5 0 0 1 0 7"/></svg></span>
-        <span class="tx"><b>Sound</b><small id="vhint">How loud he is</small></span></button>
-        <button class="pill" type="button" id="muteBtn" hidden>Mute</button></div></li>
-      <li><button class="item" type="button" data-go="utility">
-        <span class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="9" width="18" height="12" rx="2"/><path d="M12 9v12M3 14h18M12 9c-2-4-6-4-6-1.5S10 9 12 9zm0 0c2-4 6-4 6-1.5S14 9 12 9z"/></svg></span>
-        <span class="tx"><b>Birthday</b><small id="uhint">Not set</small></span>
-        <svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button></li>
-      <li><button class="item" type="button" data-go="wifi">
-        <span class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 8.8a15 15 0 0 1 20 0M5 12.6a10 10 0 0 1 14 0M8.5 16.4a5 5 0 0 1 7 0"/><circle cx="12" cy="20" r="1"/></svg></span>
-        <span class="tx"><b>Wi-Fi</b><small>Add a Wi-Fi for when you travel</small></span>
-        <svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button></li>
-      <li><button class="item" type="button" id="exploreBtn">
-        <span class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M15.5 8.5l-2 5-5 2 2-5z"/></svg></span>
-        <span class="tx"><b>Explore</b><small>See what he sees and drive him</small></span>
-        <svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button></li>
-      <li><button class="item" type="button" id="photosBtn">
-        <span class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg></span>
-        <span class="tx"><b>Photos</b><small>Photos he took</small></span>
-        <svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button></li>
-      <li><button class="item" type="button" data-go="badges">
-        <span class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="9" r="6"/><path d="M8.5 14.2L7 22l5-3 5 3-1.5-7.8"/></svg></span>
-        <span class="tx"><b>Badges</b><small id="bcount">See what he's unlocked</small></span>
-        <svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button></li>
-      <li><button class="item" type="button" data-go="passcode">
-        <span class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></span>
-        <span class="tx"><b>Passcode</b><small id="phint">Using the code on his screen</small></span>
-        <svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button></li>
-      <li><button class="item" type="button" data-go="news">
-        <span class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l2.5 5 5.5.8-4 3.9.9 5.5L12 15.6 7.1 18.2l.9-5.5-4-3.9 5.5-.8z"/></svg></span>
-        <span class="tx"><b>What's new</b><small id="ncount">In this version</small></span>
-        <svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button></li>
-    </ul>
+    <h2 class="group-title">Look and sound</h2>
+    <div class="tiles">
+      <button class="tile" type="button" data-go="customize"><span class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></svg></span><b>Customize</b><small>Eyes, stars, holidays, lights</small></button>
+      <button class="tile" type="button" data-go="eyes"><span class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="7" width="7" height="10" rx="2.5"/><rect x="14" y="7" width="7" height="10" rx="2.5"/></svg></span><b>Eye color</b><small id="ehint">His colors and your own</small></button>
+      <div class="tile-wrap"><button class="tile" type="button" data-go="sound"><span class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M16.5 8.5a5 5 0 0 1 0 7"/></svg></span><b>Sound</b><small id="vhint">How loud he is</small></button><button class="pill tile-pill" type="button" id="muteBtn" hidden>Mute</button></div>
+    </div>
+
+    <h2 class="group-title">Play</h2>
+    <div class="tiles">
+      <button class="tile" type="button" id="exploreBtn"><span class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M15.5 8.5l-2 5-5 2 2-5z"/></svg></span><b>Explore</b><small>See what he sees and drive him</small></button>
+      <button class="tile" type="button" id="photosBtn"><span class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg></span><b>Photos</b><small>Photos he took</small></button>
+      <button class="tile" type="button" data-go="game"><span class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M9 3v18M15 3v18M3 9h18M3 15h18"/></svg></span><b>Tic-tac-toe</b><small>Play a game against him</small></button>
+      <button class="tile" type="button" data-go="badges"><span class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="9" r="6"/><path d="M8.5 14.2L7 22l5-3 5 3-1.5-7.8"/></svg></span><b>Badges</b><small id="bcount">See what he's unlocked</small></button>
+    </div>
+
+    <h2 class="group-title">Settings</h2>
+    <div class="tiles">
+      <button class="tile" type="button" data-go="utility"><span class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="9" width="18" height="12" rx="2"/><path d="M12 9v12M3 14h18M12 9c-2-4-6-4-6-1.5S10 9 12 9zm0 0c2-4 6-4 6-1.5S14 9 12 9z"/></svg></span><b>Birthday</b><small id="uhint">Not set</small></button>
+      <button class="tile" type="button" data-go="wifi"><span class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 8.8a15 15 0 0 1 20 0M5 12.6a10 10 0 0 1 14 0M8.5 16.4a5 5 0 0 1 7 0"/><circle cx="12" cy="20" r="1"/></svg></span><b>Wi-Fi</b><small>Add a Wi-Fi for when you travel</small></button>
+      <button class="tile" type="button" data-go="passcode"><span class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></span><b>Passcode</b><small id="phint">Using the code on his screen</small></button>
+      <button class="tile" type="button" data-go="news"><span class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l2.5 5 5.5.8-4 3.9.9 5.5L12 15.6 7.1 18.2l.9-5.5-4-3.9 5.5-.8z"/></svg></span><b>What's new</b><small id="ncount">In this version</small></button>
+    </div>
 
     <h2 class="group-title">Coming soon</h2>
     <ul class="list later">
       <li><div class="item"><span class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>
         <span class="tx"><b>Desk clock</b><small>A big clock on his face</small></span><span class="soon">Soon</span></div></li>
-      <li><div class="item"><span class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M9 3v18M15 3v18M3 9h18M3 15h18"/></svg></span>
-        <span class="tx"><b>Games</b><small>Tic-tac-toe is in EXTRAS on his screen</small></span><span class="soon">Soon</span></div></li>
       <li><div class="item"><span class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 18a4 4 0 0 1-.5-8A5.5 5.5 0 0 1 17 9a4.5 4.5 0 0 1 0 9z"/></svg></span>
         <span class="tx"><b>Weather</b><small>Today's weather on his face</small></span><span class="soon">Later</span></div></li>
     </ul>
@@ -254,6 +259,18 @@ button.item:hover{background:var(--raised)}
     <ul class="list blist" id="blistGot"></ul>
     <h2 class="group-title">Still to find</h2>
     <ul class="list blist" id="blistLocked"></ul>
+  </main>
+
+  <!-- TIC-TAC-TOE -->
+  <main id="page-game" hidden>
+    <div class="head"><button class="back" type="button" data-go="home" aria-label="Back"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></button><span>Home</span></div>
+    <h1 class="page-title">Tic-tac-toe</h1>
+    <p class="intro">You're X, he's O. He's good, but sometimes he makes a mistake. You can also play on his screen: EXTRAS, then TIC-TAC-TOE.</p>
+    <div class="score" aria-label="Score"><div><b id="tYou">0</b><small>You</small></div><div><b id="tDraw">0</b><small>Draws</small></div><div><b id="tVec">0</b><small id="tVecName">Vector</small></div></div>
+    <p class="gmsg" id="tMsg" role="status">Your turn</p>
+    <p class="gsub" id="tSub">Tap a square</p>
+    <div class="board" id="tBoard"></div>
+    <div style="display:flex;justify-content:center;margin-top:22px"><button class="btn" type="button" id="tNew" style="min-width:200px;padding:0 28px">New game</button></div>
   </main>
 
   <!-- WHAT'S NEW -->
@@ -433,7 +450,7 @@ button.item:hover{background:var(--raised)}
   GROUPS.forEach(function (g) { g[1].forEach(function (r) { LABEL[r[0]] = r; }); });
 
   var TITLES = {home: "JamesOS", customize: "Customize", badges: "Badges", news: "What's new", utility: "Birthday", name: "Nickname", wifi: "Wi-Fi",
-    eyes: "Eye color", sound: "Sound", passcode: "Passcode"};
+    eyes: "Eye color", sound: "Sound", passcode: "Passcode", game: "Tic-tac-toe"};
   var ownCode = false;   // v31b: the owner picked a passcode (the whole page is locked without it)
   var MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
@@ -631,6 +648,76 @@ button.item:hover{background:var(--raised)}
   $("sheet").addEventListener("click", function (e) { if (e.target === $("sheet")) $("sheetNo").click(); });
   document.addEventListener("keydown", function (e) { if (e.key === "Escape" && $("sheet").classList.contains("show")) $("sheetNo").click(); });
 
+  // ---- Tic-tac-toe (same rules as EXTRAS -> TIC-TAC-TOE on his screen) ----
+  // He wins if he can, blocks you if he must, else takes the center or a corner,
+  // but 1 time in 5 he picks a random square, so you can beat him. Who starts takes turns.
+  var T = {b: "         ", state: 0, line: null, games: 0, you: 0, vec: 0, draw: 0, busy: false};
+  try { var ts = JSON.parse(localStorage.getItem("jamesosTtt") || "null"); if (ts) { T.you = ts.you | 0; T.vec = ts.vec | 0; T.draw = ts.draw | 0; T.games = ts.games | 0; } } catch (e) {}
+  function tSave() { try { localStorage.setItem("jamesosTtt", JSON.stringify({you: T.you, vec: T.vec, draw: T.draw, games: T.games})); } catch (e) {} }
+  var T_LINES = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+  function tWinner(b) {
+    for (var i = 0; i < 8; i++) { var l = T_LINES[i]; if (b[l[0]] !== " " && b[l[0]] === b[l[1]] && b[l[1]] === b[l[2]]) return {who: b[l[0]], line: l}; }
+    return null;
+  }
+  function tSet(b, i, c) { return b.slice(0, i) + c + b.slice(i + 1); }
+  function tVectorMove() {
+    var open = [], i;
+    for (i = 0; i < 9; i++) if (T.b[i] === " ") open.push(i);
+    if (!open.length) return;
+    var pick = -1;
+    if (Math.random() >= 0.2) {
+      ["O", "X"].some(function (who) {
+        return open.some(function (k) { var w = tWinner(tSet(T.b, k, who)); if (w && w.who === who) { pick = k; return true; } return false; });
+      });
+      if (pick < 0 && T.b[4] === " ") pick = 4;
+      if (pick < 0) { var c = [0, 2, 6, 8].filter(function (k) { return T.b[k] === " "; }); if (c.length) pick = c[Math.floor(Math.random() * c.length)]; }
+    }
+    if (pick < 0) pick = open[Math.floor(Math.random() * open.length)];
+    T.b = tSet(T.b, pick, "O");
+  }
+  function tCheck() {
+    var w = tWinner(T.b);
+    if (w) { T.state = w.who === "X" ? 1 : 2; T.line = w.line; if (T.state === 1) T.you++; else T.vec++; tSave(); }
+    else if (T.b.indexOf(" ") < 0) { T.state = 3; T.draw++; tSave(); }
+  }
+  function tNewGame() {
+    T.b = "         "; T.state = 0; T.line = null; T.games++; tSave();
+    if (T.games % 2 === 0) { T.busy = true; drawGame(); setTimeout(function () { tVectorMove(); T.busy = false; drawGame(); }, 600); return; }
+    drawGame();
+  }
+  function tTap(i) {
+    if (T.busy) return;
+    if (T.state !== 0) { tNewGame(); return; }
+    if (T.b[i] !== " ") return;
+    T.b = tSet(T.b, i, "X"); tCheck();
+    if (T.state !== 0) { drawGame(); return; }
+    T.busy = true; drawGame();
+    setTimeout(function () { tVectorMove(); tCheck(); T.busy = false; drawGame(); }, 550);
+  }
+  function drawGame() {
+    var name = ($("rname") && $("rname").textContent && $("rname").textContent !== "Your Vector") ? $("rname").textContent : "Vector";
+    $("tVecName").textContent = name;
+    $("tYou").textContent = T.you; $("tVec").textContent = T.vec; $("tDraw").textContent = T.draw;
+    var box = $("tBoard");
+    if (!box.children.length) {
+      for (var i = 0; i < 9; i++) (function (k) {
+        var b = document.createElement("button"); b.type = "button";
+        b.addEventListener("click", function () { tTap(k); });
+        box.appendChild(b);
+      })(i);
+    }
+    for (var j = 0; j < 9; j++) {
+      var c = T.b[j], el = box.children[j];
+      el.textContent = c === " " ? "" : c;
+      el.className = (c === "X" ? "x" : c === "O" ? "o" : "") + (T.line && T.line.indexOf(j) >= 0 ? " win" : "");
+      el.disabled = T.state === 0 && (c !== " " || T.busy);
+      el.setAttribute("aria-label", "Square " + (j + 1) + (c === " " ? ", empty" : ", " + c));
+    }
+    $("tMsg").textContent = T.busy ? name + " is thinking…" : T.state === 1 ? "You win!" : T.state === 2 ? name + " wins!" : T.state === 3 ? "It's a draw" : "Your turn";
+    $("tSub").textContent = T.state === 0 ? (T.busy ? " " : "Tap a square") : "Tap the board or New game to play again";
+  }
+  $("tNew").addEventListener("click", function () { if (!T.busy) tNewGame(); });
+
   function go(page) {
     if (!TITLES[page]) page = "home";
     Object.keys(TITLES).forEach(function (k) { $("page-" + k).hidden = k !== page; });
@@ -642,6 +729,7 @@ button.item:hover{background:var(--raised)}
     if (page === "wifi") loadWifi();
     if (page === "eyes") { myEditing = false; drawEyes(); }
     if (page === "sound") drawSound();
+    if (page === "game") drawGame();
     if (page === "passcode") { $("pc1").value = ""; $("pc2").value = ""; drawPasscode(); }
     if (location.hash !== "#" + page) history.replaceState(null, "", "#" + page);
     window.scrollTo(0, 0);
