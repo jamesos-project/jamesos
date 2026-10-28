@@ -1,7 +1,7 @@
-# JamesOS v31.3 (3.0.2.128d)
+# JamesOS v31.3 (3.0.2.129d)
 
 Custom firmware for Anki Vector, built on [WireOS](https://github.com/os-vector).
-This is the complete source of the public JamesOS v31.3 OTA (`jamesos-3.0.2.128d.ota`), published under the
+This is the complete source of the public JamesOS v31.3 OTA (`jamesos-3.0.2.129d.ota`), published under the
 GPL-3.0 like WireOS itself.
 
 JamesOS is a set of changes on top of WireOS. This repository holds every file JamesOS changed or added,
