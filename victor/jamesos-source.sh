@@ -83,7 +83,7 @@ while IFS= read -r sub; do
   done < <(git -C "$dir" status --porcelain --untracked-files=normal --ignore-submodules=all 2>/dev/null | grep -v '^ D\|^D ')
 done < <( echo "."; git -C "$WOS" submodule foreach --recursive --quiet 'echo "$displaypath"' 2>/dev/null )
 echo "   $m files from the WireOS builder"
-[[ $m -lt 200 ]] || die "That's too many builder files ($m) - something is off. Nothing was published. Send Claude a screenshot."
+[[ $m -lt 200 ]] || die "That's too many builder files ($m) - something is off. Nothing was published. Send a screenshot."
 
 echo "== 2/4 Taking out private parts =="
 python3 - "$STAGE" <<'PY' || exit 1
@@ -138,7 +138,7 @@ while IFS= read -r w; do
   hits=$(grep -rIlwF -- "$w" "$STAGE" 2>/dev/null | sed "s#^$STAGE/##")
   if [[ -n "$hits" ]]; then echo "   FOUND \"$w\" in:"; echo "$hits" | sed 's/^/      /'; BAD=1; fi
 done < "$WORDS"
-[[ $BAD == 0 ]] || die "Private words are still in the source above - NOTHING was published. Send Claude a screenshot."
+[[ $BAD == 0 ]] || die "Private words are still in the source above - NOTHING was published. Send a screenshot."
 echo "   clean"
 
 cp "$VB/LICENSE" "$STAGE/LICENSE" 2>/dev/null
@@ -187,7 +187,7 @@ git -C "$OUT" add -A
 git -C "$OUT" -c user.name="JamesOS" -c user.email="jamesos@users.noreply.github.com" \
   commit -q -m "JamesOS $REL ($VER)" || echo "   (no changes since the last time)"
 git -C "$OUT" tag -f "$VER" >/dev/null
-git -C "$OUT" push -q origin HEAD 2>/dev/null || git -C "$OUT" push -q -u origin HEAD:main || die "Push failed - send Claude a screenshot."
+git -C "$OUT" push -q origin HEAD 2>/dev/null || git -C "$OUT" push -q -u origin HEAD:main || die "Push failed - send a screenshot."
 git -C "$OUT" push -q -f origin "$VER" || true
 echo
 echo "Done. Source of JamesOS $REL ($VER):  ${REPO%.git}"

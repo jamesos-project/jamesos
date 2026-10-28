@@ -161,6 +161,20 @@ button.item:hover{background:var(--raised)}
 .linkbtn{border:0;background:none;color:var(--gold);font-size:14px;font-weight:500;padding:4px}
 .check{display:flex;align-items:center;gap:10px;font-size:15px;color:var(--muted);margin:2px 0 4px}
 .check input{width:22px;height:22px;accent-color:var(--gold)}
+/* tip: use his .local name instead of the IP */
+.ltip{display:flex;gap:12px;align-items:flex-start;margin:0 0 6px;padding:14px 16px;border-radius:var(--r-md);background:var(--gold-tint)}
+.ltip p{margin:0;flex:1;font-size:14px;line-height:1.45;color:var(--text)}
+.ltip a{color:var(--gold);font-weight:500;white-space:nowrap}
+.ltip button{flex:none;border:0;background:none;color:var(--muted);font-size:20px;line-height:1;padding:0 2px}
+/* v31.3 weather */
+.wxnow{margin:14px 0 18px;padding:16px;border-radius:var(--r-md);background:var(--panel);font-size:16px}
+.wxnow small{display:block;color:var(--muted);font-size:13px;margin-top:4px}
+.wxsearch{display:flex;gap:8px;margin-bottom:12px}
+.wxsearch input{flex:1;min-width:0;height:44px;border-radius:12px;border:1px solid var(--edge);background:var(--panel);padding:0 14px}
+.wxsearch .pill{height:44px;border-radius:22px}
+.wxres{margin-bottom:18px}
+.wxres .item small{white-space:normal}
+.intro a{color:var(--gold)}
 /* home: grouped tiles */
 .tiles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
 .tile{position:relative;display:flex;flex-direction:column;align-items:flex-start;gap:10px;width:100%;min-height:118px;padding:14px;border:0;border-radius:var(--r-md);background:var(--panel);text-align:left}
@@ -208,11 +222,14 @@ button.item:hover{background:var(--raised)}
       <ul class="facts" id="facts"></ul>
     </section>
 
+    <div class="ltip" id="localTip" hidden><p>Bookmark <a id="localLink" href="#"></a> instead. It keeps working when his IP address changes.</p><button type="button" id="localTipX" aria-label="Hide this tip">&times;</button></div>
+
     <h2 class="group-title">Look and sound</h2>
     <div class="tiles">
       <button class="tile" type="button" data-go="customize"><span class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></svg></span><b>Customize</b><small>Eyes, stars, holidays, lights</small></button>
       <button class="tile" type="button" data-go="eyes"><span class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="7" width="7" height="10" rx="2.5"/><rect x="14" y="7" width="7" height="10" rx="2.5"/></svg></span><b>Eye color</b><small id="ehint">His colors and your own</small></button>
       <div class="tile-wrap"><button class="tile" type="button" data-go="sound"><span class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M16.5 8.5a5 5 0 0 1 0 7"/></svg></span><b>Sound</b><small id="vhint">How loud he is</small></button><button class="pill tile-pill" type="button" id="muteBtn" hidden>Mute</button></div>
+      <button class="tile" type="button" data-go="weather"><span class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 4v1.5M3.8 6.3l1 1M2.5 11H4"/><path d="M5.5 11a3 3 0 0 1 5.2-2.1"/><path d="M9 20a4 4 0 0 1-.4-8 5 5 0 0 1 9.6 1.3A3.5 3.5 0 0 1 17.5 20z"/></svg></span><b>Weather</b><small id="whint">Not set</small></button>
     </div>
 
     <h2 class="group-title">Play</h2>
@@ -231,13 +248,6 @@ button.item:hover{background:var(--raised)}
       <button class="tile" type="button" data-go="news"><span class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l2.5 5 5.5.8-4 3.9.9 5.5L12 15.6 7.1 18.2l.9-5.5-4-3.9 5.5-.8z"/></svg></span><b>What's new</b><small id="ncount">In this version</small></button>
     </div>
 
-    <h2 class="group-title">Coming soon</h2>
-    <ul class="list later">
-      <li><div class="item"><span class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>
-        <span class="tx"><b>Desk clock</b><small>A big clock on his face</small></span><span class="soon">Soon</span></div></li>
-      <li><div class="item"><span class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 18a4 4 0 0 1-.5-8A5.5 5.5 0 0 1 17 9a4.5 4.5 0 0 1 0 9z"/></svg></span>
-        <span class="tx"><b>Weather</b><small>Today's weather on his face</small></span><span class="soon">Later</span></div></li>
-    </ul>
   </main>
 
   <!-- CUSTOMIZE -->
@@ -259,6 +269,20 @@ button.item:hover{background:var(--raised)}
     <ul class="list blist" id="blistGot"></ul>
     <h2 class="group-title">Still to find</h2>
     <ul class="list blist" id="blistLocked"></ul>
+  </main>
+
+  <!-- WEATHER (v31.3) -->
+  <main id="page-weather" hidden>
+    <div class="head"><button class="back" type="button" data-go="home" aria-label="Back"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></button><span>Home</span></div>
+    <h1 class="page-title">Weather</h1>
+    <p class="intro">His desk clock shows the weather under the time. Pick your city.</p>
+    <div class="wxnow" id="wxNow">No city yet.</div>
+    <div class="wxsearch"><input id="wxCity" type="text" maxlength="60" autocomplete="off" placeholder="Your city, like Paris"><button class="pill" id="wxGo" type="button">Search</button></div>
+    <ul class="list wxres" id="wxRes"></ul>
+    <h2 class="group-title">Temperature</h2>
+    <div class="seg" id="wxUnit"><button type="button" data-u="c" aria-pressed="true">&deg;C</button><button type="button" data-u="f" aria-pressed="false">&deg;F</button></div>
+    <p style="margin:18px 0 0"><button class="linkbtn" id="wxOff" type="button" hidden>Turn the weather off</button></p>
+    <p class="intro" style="font-size:13px;margin-top:22px">Weather data by <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo.com</a>. He only saves your city, rounded to about 10 km.</p>
   </main>
 
   <!-- TIC-TAC-TOE -->
@@ -439,6 +463,9 @@ button.item:hover{background:var(--raised)}
     ["Sleep", [
       ["sleep", "Sleep screen", "On the charger at night", [["stars", "Stars"], ["clock", "Clock"], ["both", "Both"], ["off", "Off"]]]
     ]],
+    ["Desk clock", [
+      ["deskclock", "Desk clock", "A big clock on his face while he sits on the charger", [["on", "12-hour"], ["on24", "24-hour"], ["off", "Off"]]]
+    ]],
     ["Care", [
       ["care", "Vector Care", "Simpler effects when he's hot, safe updates, moving sleep clock", [["on", "On"], ["off", "Off"]]]
     ]],
@@ -450,7 +477,7 @@ button.item:hover{background:var(--raised)}
   GROUPS.forEach(function (g) { g[1].forEach(function (r) { LABEL[r[0]] = r; }); });
 
   var TITLES = {home: "JamesOS", customize: "Customize", badges: "Badges", news: "What's new", utility: "Birthday", name: "Nickname", wifi: "Wi-Fi",
-    eyes: "Eye color", sound: "Sound", passcode: "Passcode", game: "Tic-tac-toe"};
+    eyes: "Eye color", sound: "Sound", passcode: "Passcode", game: "Tic-tac-toe", weather: "Weather"};
   var ownCode = false;   // v31b: the owner picked a passcode (the whole page is locked without it)
   var MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
@@ -581,6 +608,17 @@ button.item:hover{background:var(--raised)}
     $("rname").textContent = name;
     $("rreal").hidden = !(s.nickname && s.host);
     $("rreal").textContent = s.host || "";
+    $("whint").textContent = wxLine(s.weather);   // v31.3
+    var byIp = /^\d+\.\d+\.\d+\.\d+$/.test(location.hostname), hidden = false;
+    try { hidden = localStorage.getItem("jamesosLocalTip") === "off"; } catch (e) {}
+    if (byIp && s.host && /^vector-[a-z0-9]+$/i.test(s.host) && !hidden) {
+      var url = "http://" + s.host.toLowerCase() + ".local:" + (location.port || "8889") + "/jamesos/";
+      $("localLink").textContent = url.replace("http://", "");
+      $("localLink").href = url;
+      $("localTip").hidden = false;
+    } else {
+      $("localTip").hidden = true;
+    }
     var full = s.charger && !s.charging, st = $("rstate"); st.textContent = "";
     st.appendChild(el("b", null, s.charger ? (s.charging ? "Charging" : "Fully charged") : "Off the charger"));
     if (s.battery >= 0 && !full) st.appendChild(document.createTextNode(", " + Math.min(100, s.battery) + "%"));
@@ -717,6 +755,80 @@ button.item:hover{background:var(--raised)}
     $("tSub").textContent = T.state === 0 ? (T.busy ? " " : "Tap a square") : "Tap the board or New game to play again";
   }
   $("tNew").addEventListener("click", function () { if (!T.busy) tNewGame(); });
+  $("localTipX").addEventListener("click", function () {
+    $("localTip").hidden = true;
+    try { localStorage.setItem("jamesosLocalTip", "off"); } catch (e) {}
+  });
+
+  // ---- v31.3 weather ----
+  var WXN = {0: "Clear", 1: "Mostly clear", 2: "Partly cloudy", 3: "Cloudy", 45: "Fog", 48: "Fog",
+    51: "Drizzle", 53: "Drizzle", 55: "Drizzle", 56: "Freezing drizzle", 57: "Freezing drizzle",
+    61: "Rain", 63: "Rain", 65: "Heavy rain", 66: "Freezing rain", 67: "Freezing rain",
+    71: "Snow", 73: "Snow", 75: "Heavy snow", 77: "Snow", 80: "Showers", 81: "Showers", 82: "Heavy showers",
+    85: "Snow showers", 86: "Snow showers", 95: "Thunderstorm", 96: "Thunderstorm", 99: "Thunderstorm"};
+  var wxUnitPick = "c";
+  function wxLine(w) {
+    if (!w || !w.city) return "Not set";
+    if (w.code == null || w.code < 0) return w.city;
+    return w.temp + "\u00b0" + (w.unit === "f" ? "F" : "C") + " " + (WXN[w.code] || "") + ", " + w.city;
+  }
+  function drawWeather() {
+    var w = state && state.weather;
+    var box = $("wxNow"); box.textContent = "";
+    if (w && w.city) {
+      box.appendChild(document.createTextNode(w.code >= 0 ? "Now: " + wxLine(w) : w.city));
+      box.appendChild(el("small", null, w.code >= 0 ? "It shows on his desk clock (Customize, Desk clock)." : "Getting the weather, give him a minute."));
+      wxUnitPick = w.unit === "f" ? "f" : "c";
+    } else {
+      box.textContent = "No city yet. Search for yours below.";
+    }
+    [].forEach.call($("wxUnit").children, function (b) { b.setAttribute("aria-pressed", String(b.getAttribute("data-u") === wxUnitPick)); });
+    $("wxOff").hidden = !(w && w.city);
+  }
+  function wxSave(lat, lon, label) {
+    var name = String(label).replace(/[^\w\u00c0-\uffff ,.'-]/g, "").slice(0, 48);
+    return request("POST", "set", "weather=" + lat.toFixed(1) + " " + lon.toFixed(1) + " " + wxUnitPick + " " + name).then(function (j) {
+      if (j.state) state = j.state;
+      draw(); drawWeather(); toast("Weather set to " + name);
+    }).catch(function (e) { toast(e.server ? "Not saved: " + e.message : "Not saved. Can't reach your Vector"); });
+  }
+  function wxMsg(t) {
+    var list = $("wxRes"), li = el("li"); list.textContent = "";
+    li.appendChild(el("div", "item", t)); list.appendChild(li);
+  }
+  function wxSearch() {
+    var q = $("wxCity").value.trim(), list = $("wxRes");
+    if (!q) { $("wxCity").focus(); return; }
+    wxMsg("Searching…");
+    request("POST", "wxsearch", "q=" + q).then(function (j) {
+      list.textContent = "";
+      var r = (j && j.results) || [];
+      if (!r.length) { wxMsg("No city found. Try another spelling."); return; }
+      r.forEach(function (c) {
+        var b = el("button", "item"); b.type = "button";
+        var tx = el("span", "tx"); tx.appendChild(el("b", null, c.name));
+        tx.appendChild(el("small", null, [c.admin1, c.country].filter(Boolean).join(", ")));
+        b.appendChild(tx);
+        b.addEventListener("click", function () { list.textContent = ""; $("wxCity").value = ""; wxSave(c.latitude, c.longitude, c.name); });
+        var li = el("li"); li.appendChild(b); list.appendChild(li);
+      });
+    }).catch(function (e) {
+      wxMsg(e.server ? e.message : "Can't reach your Vector");
+    });
+  }
+  $("wxGo").addEventListener("click", wxSearch);
+  $("wxCity").addEventListener("keydown", function (e) { if (e.key === "Enter") wxSearch(); });
+  [].forEach.call($("wxUnit").children, function (b) {
+    b.addEventListener("click", function () {
+      wxUnitPick = b.getAttribute("data-u");
+      var w = state && state.weather;
+      if (w && w.city) { wxSave(w.lat, w.lon, w.city); } else { drawWeather(); }
+    });
+  });
+  $("wxOff").addEventListener("click", function () {
+    request("POST", "set", "weather=off").then(function (j) { if (j.state) state = j.state; draw(); drawWeather(); toast("Weather turned off"); })
+      .catch(function () { toast("Not saved. Can't reach your Vector"); });
+  });
 
   function go(page) {
     if (!TITLES[page]) page = "home";
@@ -730,6 +842,7 @@ button.item:hover{background:var(--raised)}
     if (page === "eyes") { myEditing = false; drawEyes(); }
     if (page === "sound") drawSound();
     if (page === "game") drawGame();
+    if (page === "weather") drawWeather();
     if (page === "passcode") { $("pc1").value = ""; $("pc2").value = ""; drawPasscode(); }
     if (location.hash !== "#" + page) history.replaceState(null, "", "#" + page);
     window.scrollTo(0, 0);

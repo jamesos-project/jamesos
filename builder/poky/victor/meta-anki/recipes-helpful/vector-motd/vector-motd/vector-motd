@@ -16,7 +16,7 @@ fi
 
 NAME=$(getprop ro.build.os.cfw.prettyname)
 VERSION=$(getprop ro.anki.version)
-BASE="$NAME"; NAME="JamesOS"; JV=$(sed -n 2p /anki/etc/jamesos-version 2>/dev/null); VERSION="${JV:-v31.2} (based on $BASE $VERSION)"  # JamesOS
+BASE="$NAME"; NAME="JamesOS"; JV=$(sed -n 2p /anki/etc/jamesos-version 2>/dev/null); VERSION="${JV:-v31.3} (based on $BASE $VERSION)"  # JamesOS
 
 IP=$(ip -4 -o addr show wlan0 2>/dev/null | awk '{split($4,a,"/"); print a[1]; exit}')
 [ -n "$IP" ] || IP="not connected"

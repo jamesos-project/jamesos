@@ -55,7 +55,7 @@ bring_back() {
 # jamesos/splash.raw, and jamesos/seasonal_off = no holiday boot themes), so updates don't touch it.
 # Some robots open /persist late, AFTER the startup screens: those screens then read the copy that
 # sits underneath it on the system drive - and an update replaces that. Keep that copy the same.
-STARTUP_FILES="boot_anim.raw jamesos/splash.raw jamesos/seasonal_off"
+STARTUP_FILES="boot_anim.raw jamesos/splash.raw jamesos/seasonal_off jamesos/boot_theme jamesos/boot_holidays jamesos/boot_holidaytime jamesos/boot_lights.off"
 startup_copy() {
   [ "$(df /persist 2>/dev/null | tail -1 | awk '{print $NF}')" = /persist ] || return 0  # not its own drive (or not open yet)
   T=/tmp/jamesos-root
@@ -108,7 +108,29 @@ updates_lock() {
   echo "JamesOS keep: updates lock put back"
 }
 
+# v31.3: the boot screen can start before /data is ready, so keep a copy of the settings it needs
+# (THEME, HOLIDAYS, HOLIDAY TIME, BACK LIGHTS) in /persist/jamesos/boot_*
+BOOTSET="theme holidays holidaytime lights.off"
+boot_settings() {
+  awk '$2=="/data" {f=1} END {exit !f}' /proc/mounts || return 0
+  [ -d "$J" ] || return 0
+  same=1
+  for f in $BOOTSET; do
+    if [ -e "$J/$f" ]; then cmp -s "$J/$f" "$P/boot_$f" || same=0
+    elif [ -e "$P/boot_$f" ]; then same=0; fi
+  done
+  [ "$same" = 1 ] && return 0
+  persist_rw || return 0
+  mkdir -p "$P"
+  for f in $BOOTSET; do
+    if [ -e "$J/$f" ]; then cp "$J/$f" "$P/boot_$f.tmp" && mv "$P/boot_$f.tmp" "$P/boot_$f"
+    else rm -f "$P/boot_$f"; fi
+  done
+  persist_ro
+}
+
 save() {
+  boot_settings
   startup_copy
   awk '$2=="/data" {f=1} END {exit !f}' /proc/mounts || return 0
   have=0

@@ -96,6 +96,13 @@ std::string Sleep()
   if (Has(w, "both"))  { return "both"; }
   return "off";
 }
+std::string DeskClock()   // v31.3
+{
+  const std::string w = Word(F("deskclock"));
+  if (Has(w, "on24")) { return "on24"; }
+  if (Has(w, "on"))   { return "on"; }
+  return "off";
+}
 std::string Lights()
 {
   if (Exists(kAnkiLights)) { return "anki"; }
@@ -278,13 +285,32 @@ std::string StateJson()
       j += "\"birthday\":null,";
     }
   }
+  {   // v31.3 weather: the city he uses + his latest reading
+    float la = 0.f, lo = 0.f;
+    char un = 'c';
+    int used = 0;
+    const std::string w = Word(F("weather"));
+    if (!w.empty() && std::sscanf(w.c_str(), "%f %f %c %n", &la, &lo, &un, &used) >= 3) {
+      const std::string city = used > 0 && (size_t)used <= w.size() ? w.substr((size_t)used) : "";
+      int t = 0, c = -1, d = 1;
+      long long at = 0;
+      FILE* f = std::fopen("/dev/shm/jamesos_weather", "r");
+      if (f != nullptr) { if (std::fscanf(f, "%d %d %d %lld", &t, &c, &d, &at) != 4) { c = -1; } std::fclose(f); }
+      char nums[160];
+      std::snprintf(nums, sizeof(nums), "\"lat\":%.1f,\"lon\":%.1f,\"unit\":\"%c\",\"temp\":%d,\"code\":%d,\"day\":%d,\"at\":%lld",
+                    la, lo, un == 'f' ? 'f' : 'c', t, c, d, at);
+      j += "\"weather\":{\"city\":\"" + Esc(city) + "\"," + nums + "},";
+    } else {
+      j += "\"weather\":null,";
+    }
+  }
   j += "\"settings\":{";
   j += "\"theme\":\"" + Theme() + "\",\"holidaytime\":\"" + HolidayTime() + "\",\"holidays\":\"" + Holidays() + "\",";
   j += "\"stars\":\"" + Stars() + "\",\"petting\":\"" + Petting() + "\",";
   j += std::string("\"mood\":\"") + (Exists(F("mood.on")) ? "on" : "off") + "\",";
   j += std::string("\"sleepy\":\"") + (Exists(F("sleepy.off")) ? "off" : "on") + "\",";
   j += std::string("\"care\":\"") + (Exists(F("care.off")) ? "off" : "on") + "\",";   // v30 Vector Care
-  j += "\"funeyes\":\"" + FunEyes() + "\",\"sleep\":\"" + Sleep() + "\",\"lights\":\"" + Lights() + "\"},";
+  j += "\"funeyes\":\"" + FunEyes() + "\",\"sleep\":\"" + Sleep() + "\",\"deskclock\":\"" + DeskClock() + "\",\"lights\":\"" + Lights() + "\"},";
   j += "\"choices\":{\"stars\":" + List(stars) + ",\"theme\":" + List(themes) + "}";
   j += "}";
   return j;
@@ -543,6 +569,29 @@ std::string Set(const std::string& key, const std::string& v)
     Flag(F("funeyes.auto"), v == "auto");
     return "";
   }
+  if (key == "weather") {   // v31.3: "off" or "LAT LON c|f CITY NAME"
+    if (v == "off") { Del(F("weather")); return ""; }
+    float lat = 999.f, lon = 999.f;
+    char unit = 0;
+    int used = 0;
+    if (std::sscanf(v.c_str(), "%f %f %c %n", &lat, &lon, &unit, &used) < 3 || used <= 0) { return "bad value"; }
+    if (lat < -90.f || lat > 90.f || lon < -180.f || lon > 180.f || (unit != 'c' && unit != 'f')) { return "bad value"; }
+    std::string name;
+    for (size_t i = (size_t)used; i < v.size() && name.size() < 48; ++i) {
+      const unsigned char c = (unsigned char)v[i];
+      if (c >= 0x80 || (c >= '0' && c <= '9') || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == ' ' || c == ',' || c == '.' || c == '\'' || c == '-') { name += (char)c; }
+    }
+    while (!name.empty() && name.back() == ' ') { name.pop_back(); }
+    char buf[120];
+    std::snprintf(buf, sizeof(buf), "%.1f %.1f %c ", lat, lon, unit);   // ~10 km is plenty for the weather
+    Put(F("weather"), std::string(buf) + name + "\n");
+    return "";
+  }
+  if (key == "deskclock") {   // v31.3
+    if (!In(v, {"on", "on24", "off"})) { return "bad value"; }
+    if (v == "off") { Del(F("deskclock")); } else { Put(F("deskclock"), v + "\n"); }
+    return "";
+  }
   if (key == "sleep") {
     if (!In(v, {"stars", "clock", "both", "off"})) { return "bad value"; }
     if (v == "off") { Del(F("sleepscreen")); } else { Put(F("sleepscreen"), v + "\n"); }
@@ -772,6 +821,32 @@ int Handle(struct mg_connection* conn, void* /*cbdata*/)
     LOG_INFO("JamesOS.Companion.Passcode", "%s", p.own ? "own passcode set" : "back to the code on his screen");
     sync();
     ReplyWithKey(conn, p.key, true, std::string("{\"ok\":true,\"ownCode\":") + (p.own ? "true" : "false") + "}");
+    return 1;
+  }
+  if (uri == "/jamesos/api/wxsearch" && method == "POST") {   // v31.3: find a city for the weather
+    if (!ReadMark(conn)) { Reply(conn, 403, "{\"error\":\"not allowed\"}"); return 1; }
+    if (!unlocked) { Reply(conn, 401, "{\"error\":\"locked\"}"); return 1; }
+    std::string q = ReadBody(conn, 120);
+    if (q.compare(0, 2, "q=") == 0) { q = q.substr(2); }
+    std::string enc;   // every character %-encoded except letters and digits: safe in the URL and the shell
+    for (const char ch : q) {
+      const unsigned char c = (unsigned char)ch;
+      if (enc.size() > 200) { break; }
+      if ((c >= '0' && c <= '9') || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')) { enc += (char)c; }
+      else { char h[4]; std::snprintf(h, sizeof(h), "%%%02X", c); enc += h; }
+    }
+    if (enc.empty()) { Reply(conn, 400, "{\"error\":\"type a city\"}"); return 1; }
+    const std::string cmd = "curl -s -m 15 'https://geocoding-api.open-meteo.com/v1/search?count=6&language=en&format=json&name=" + enc + "' 2>/dev/null";
+    std::string out;
+    FILE* p = popen(cmd.c_str(), "r");
+    if (p != nullptr) {
+      char buf[512];
+      size_t n;
+      while ((n = std::fread(buf, 1, sizeof(buf), p)) > 0 && out.size() < 65536) { out.append(buf, n); }
+      pclose(p);
+    }
+    if (out.empty() || out[0] != '{') { Reply(conn, 502, "{\"error\":\"he couldn't reach the weather service\"}"); return 1; }
+    Reply(conn, 200, out);
     return 1;
   }
   if (uri == "/jamesos/api/badges" && method == "GET") {

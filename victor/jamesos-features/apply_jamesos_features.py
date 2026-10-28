@@ -70,7 +70,7 @@ LIST_SCREENS = ["JamesOS", "JamesStars", "JamesEffects", "JamesTheme", "JamesSle
 
 def die(msg):
     print("ERROR: " + msg)
-    print("That file was not changed. Send this message to Claude.")
+    print("That file was not changed. Send this message for help.")
     sys.exit(1)
 
 
@@ -504,7 +504,7 @@ if "JamesHalloweenLights" in ld12:
         ld12 = ld12[:a] + ld12[b + 3:]
 if "JamesHalloweenLights" in ld12:
     print("ERROR: couldn't take out the old Halloween lights loader in " + LOADER_CPP)
-    print("That file was not changed. Send this message to Claude.")
+    print("That file was not changed. Send this message for help.")
     sys.exit(1)
 if ld12 != ld:
     write(LOADER_CPP, ld12)
@@ -558,7 +558,7 @@ for intents_path in glob.glob("/mnt/c/Users/*/AppData/Roaming/wire-pod/customInt
         else:
             print("     wire-pod: no JamesOS eye color commands (nothing to remove)")
     except Exception as ex:
-        print("     wire-pod: couldn't clean %s (%s) - send this line to Claude" % (intents_path, ex))
+        print("     wire-pod: couldn't clean %s (%s) - send this line for help" % (intents_path, ex))
 
 # ------------------------------------------------------------------ [17] power off without the button
 BOT_CPP = "robot/supervisor/src/cozmoBot.cpp"
@@ -574,7 +574,7 @@ if os.path.exists(BOT_CPP):
     elif func_anchor in b and call_anchor in b:
         b = b.replace(func_anchor, code + func_anchor, 1)
     else:
-        print("[17] SKIPPED: couldn't find the right spot in " + BOT_CPP + " (send this line to Claude)")
+        print("[17] SKIPPED: couldn't find the right spot in " + BOT_CPP + " (send this line for help)")
     if "CheckForJamesPowerOff();" not in b and call_anchor in b and "void CheckForJamesPowerOff()" in b:
         b = b.replace(call_anchor, call_anchor + "          CheckForJamesPowerOff(); // JamesOS\n", 1)
     if b != b0:
@@ -583,7 +583,7 @@ if os.path.exists(BOT_CPP):
     else:
         print("[17] Power off command already added")
 else:
-    print("[17] SKIPPED: " + BOT_CPP + " not found (send this line to Claude)")
+    print("[17] SKIPPED: " + BOT_CPP + " not found (send this line for help)")
 
 # ------------------------------------------------------------------ [20] name fix
 # "Hey Vector, my name is James" sometimes became the name "james my name is james"

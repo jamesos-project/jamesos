@@ -61,7 +61,7 @@ cat verdict.txt
 
 if [[ "$MODE" != fix ]]; then
   $SSH "umount /tmp/jr 2>/dev/null; umount /tmp/oldb 2>/dev/null; true"
-  echo "Looked only - nothing changed. Send this output to Claude."
+  echo "Looked only - nothing changed. Send this output for help."
   exit 0
 fi
 
@@ -69,7 +69,7 @@ DO_PIC=0; DO_ANIM=0
 grep -q "RAMPOST PICTURE_ONLY" verdict.txt && DO_PIC=1
 grep -q "ANIM DIFFERENT" verdict.txt && DO_ANIM=1
 if grep -q "RAMPOST DIFFERENT_PROGRAM" verdict.txt; then
-  echo "The startup program changed between versions - NOT copying it (would be unsafe). Tell Claude."
+  echo "The startup program changed between versions - NOT copying it (would be unsafe). Ask for help."
 fi
 if [[ $DO_PIC == 0 && $DO_ANIM == 0 ]]; then
   $SSH "umount /tmp/jr 2>/dev/null; umount /tmp/oldb 2>/dev/null; true"

@@ -97,6 +97,12 @@ namespace {
   std::atomic<bool>  gJamesOwnEyes{false}; // you picked an eye color (voice/app) while a theme is on: your color wins
   const char* kJamesOwnEyesFile = "/data/data/jamesos/own_eyes";   // remembers that (per theme) across restarts
   std::atomic<int>   gJamesSleepMode{0};   // JamesSleepMode
+  std::atomic<int>       gJamesWxTemp{0};    // v31.3 weather
+  std::atomic<int>       gJamesWxCode{-1};   // WMO weather code, -1 = none yet
+  std::atomic<int>       gJamesWxDay{1};
+  std::atomic<long long> gJamesWxAt{0};      // unix seconds of the last good reading
+  std::atomic<int>   gJamesDeskClock{0};   // v31.3 desk clock: 0 off, 1 12-hour, 2 24-hour
+  std::atomic<long long> gJamesLastPetMs{-100000};   // v31.3: the desk clock shows his eyes after petting
   std::atomic<bool>  gJamesDbgEyes{false};   // v29 debug
   // v30 Vector Care (on unless /data/data/jamesos/care.off exists)
   const char* kJamesCareOffFlag = "/data/data/jamesos/care.off";
@@ -278,6 +284,10 @@ namespace {
     else if (sleep == "clock") { mode = JamesSleepMode::Clock; }
     else if (sleep == "both")  { mode = JamesSleepMode::Both; }
     gJamesSleepMode = (int)mode;
+    {
+      const std::string dc = JamesReadWord("/data/data/jamesos/deskclock");   // v31.3
+      gJamesDeskClock = (dc == "on24") ? 2 : (dc == "on") ? 1 : 0;
+    }
     gJamesCareOn = !JamesFileExists(kJamesCareOffFlag);   // v30
     gJamesHeatTest = JamesFileExists("/data/data/jamesos/heat.test");
   }
@@ -449,6 +459,8 @@ namespace {
     static const u8 kM[7] = {0x11,0x1B,0x15,0x15,0x11,0x11,0x11};
     if (c >= '0' && c <= '9') { return kDigits[c - '0']; }
     if (c == ':') { return kColon; }
+    static const u8 kMinus[7] = {0x00,0x00,0x00,0x1F,0x00,0x00,0x00};   // v31.3 weather below zero
+    if (c == '-') { return kMinus; }
     if (c == 'A') { return kA; }
     if (c == 'P') { return kP; }
     if (c == 'M') { return kM; }
@@ -480,6 +492,102 @@ namespace {
         }
       }
       x += 6 * scale;
+    }
+  }
+
+  // ---- v31.3 weather: small icons (16x14) and the "icon 31°" row under the desk clock ----
+  void JamesDisc(Vision::ImageRGB565& o, f32 cx, f32 cy, f32 r, f32 a, u8 cr, u8 cg, u8 cb)
+  {
+    for (s32 y = (s32)(cy - r - 1.f); y <= (s32)(cy + r + 1.f); ++y) {
+      for (s32 x = (s32)(cx - r - 1.f); x <= (s32)(cx + r + 1.f); ++x) {
+        const f32 dx = (f32)x + 0.5f - cx, dy = (f32)y + 0.5f - cy;
+        const f32 d = std::sqrt(dx * dx + dy * dy);
+        if (d <= r) { JamesLightenPixel(o, x, y, a, cr, cg, cb); }
+        else if (d < r + 1.f) { JamesLightenPixel(o, x, y, a * (r + 1.f - d), cr, cg, cb); }
+      }
+    }
+  }
+
+  void JamesDrawCloud(Vision::ImageRGB565& o, f32 ix, f32 iy, f32 a)
+  {
+    JamesDisc(o, ix + 5.f, iy + 8.f, 3.2f, a, 205, 215, 232);
+    JamesDisc(o, ix + 9.f, iy + 6.f, 4.f, a, 205, 215, 232);
+    JamesDisc(o, ix + 12.5f, iy + 8.5f, 2.8f, a, 205, 215, 232);
+    for (s32 y = (s32)iy + 8; y <= (s32)iy + 11; ++y) {
+      for (s32 x = (s32)ix + 5; x <= (s32)ix + 13; ++x) { JamesLightenPixel(o, x, y, a, 205, 215, 232); }
+    }
+  }
+
+  void JamesDrawWeatherIcon(Vision::ImageRGB565& o, s32 ix0, s32 iy0, int code, bool day, f32 a)
+  {
+    const f32 ix = (f32)ix0, iy = (f32)iy0;
+    auto sun = [&](f32 cx, f32 cy, f32 r) {
+      JamesDisc(o, cx, cy, r, a, 255, 205, 70);
+      for (s32 k = 0; k < 8; ++k) {
+        const f32 ang = (f32)k * 0.785398f;
+        for (f32 rr = r + 1.6f; rr <= r + 2.8f; rr += 0.6f) {
+          JamesLightenPixel(o, (s32)(cx + std::cos(ang) * rr), (s32)(cy + std::sin(ang) * rr), a, 255, 205, 70);
+        }
+      }
+    };
+    auto moon = [&](f32 cx, f32 cy, f32 r) {
+      for (s32 y = (s32)(cy - r - 1.f); y <= (s32)(cy + r + 1.f); ++y) {
+        for (s32 x = (s32)(cx - r - 1.f); x <= (s32)(cx + r + 1.f); ++x) {
+          const f32 dx = (f32)x + 0.5f - cx, dy = (f32)y + 0.5f - cy;
+          const f32 ex = dx - r * 0.55f, ey = dy + r * 0.35f;
+          if (dx * dx + dy * dy <= r * r && ex * ex + ey * ey > r * r * 0.72f) { JamesLightenPixel(o, x, y, a, 225, 225, 255); }
+        }
+      }
+    };
+    const bool clear = (code == 0), partly = (code == 1 || code == 2), fog = (code == 45 || code == 48);
+    const bool snow = (code >= 71 && code <= 77) || code == 85 || code == 86;
+    const bool storm = (code >= 95);
+    const bool rain = !snow && !storm && ((code >= 51 && code <= 67) || (code >= 80 && code <= 82));
+    if (clear) { if (day) { sun(ix + 8.f, iy + 7.f, 3.4f); } else { moon(ix + 8.f, iy + 7.f, 5.f); } return; }
+    if (fog) {
+      for (s32 k = 0; k < 3; ++k) {
+        for (s32 x = ix0 + 2 + (k % 2) * 2; x <= ix0 + 14 - ((k + 1) % 2) * 2; ++x) { JamesLightenPixel(o, x, iy0 + 4 + k * 3, a, 190, 200, 215); }
+      }
+      return;
+    }
+    if (partly) {
+      if (day) { sun(ix + 5.f, iy + 4.5f, 2.6f); } else { moon(ix + 5.f, iy + 4.5f, 3.8f); }
+      JamesDrawCloud(o, ix + 1.f, iy + 2.f, a);
+      return;
+    }
+    const f32 up = (rain || snow || storm) ? -2.f : 0.f;   // room for drops / flakes / bolt underneath
+    JamesDrawCloud(o, ix, iy + up, a);
+    if (rain) {
+      for (s32 k = 0; k < 3; ++k) {
+        const s32 x = ix0 + 5 + k * 4, y = iy0 + 11;
+        JamesLightenPixel(o, x, y, a, 110, 175, 255); JamesLightenPixel(o, x - 1, y + 2, a, 110, 175, 255);
+        JamesLightenPixel(o, x, y + 1, a, 110, 175, 255);
+      }
+    } else if (snow) {
+      for (s32 k = 0; k < 3; ++k) { JamesDisc(o, ix + 5.5f + (f32)k * 4.f, iy + 12.5f + (f32)(k % 2), 0.7f, a, 240, 245, 255); }
+    } else if (storm) {
+      const s32 bx = ix0 + 9, by = iy0 + 9;
+      const s32 bolt[7][2] = {{0, 0}, {-1, 1}, {-2, 2}, {-1, 2}, {0, 2}, {-1, 3}, {-2, 4}};
+      for (const auto& p : bolt) { JamesLightenPixel(o, bx + p[0], by + p[1], a, 255, 220, 60); JamesLightenPixel(o, bx + p[0] + 1, by + p[1], a, 255, 220, 60); }
+    }
+  }
+
+  // the row under the desk clock: [icon] 31°   (centered on cx, top at y)
+  void JamesDrawWeatherRow(Vision::ImageRGB565& o, s32 cx, s32 y, s32 temp, int code, bool day,
+                           f32 a, u8 cr, u8 cg, u8 cb)
+  {
+    const std::string t = std::to_string(temp);
+    const s32 tw = JamesTextWidth(t, 2);
+    const s32 total = 16 + 4 + tw + 5;
+    const s32 x0 = cx - total / 2;
+    JamesDrawWeatherIcon(o, x0, y, code, day, a);
+    JamesDrawText(o, t, x0 + 20, y, 2, 0.9f * a, cr, cg, cb);
+    const s32 dx = x0 + 20 + tw + 1;   // the little degree ring
+    for (s32 yy = 0; yy < 3; ++yy) {
+      for (s32 xx = 0; xx < 3; ++xx) {
+        if (yy == 1 && xx == 1) { continue; }
+        JamesLightenPixel(o, dx + xx, y + yy, 0.9f * a, cr, cg, cb);
+      }
     }
   }
 
@@ -830,6 +938,7 @@ void ProceduralFaceDrawer::JamesSetPetting(bool petting)
     return;
   }
   lastPet = now;
+  gJamesLastPetMs = JamesNowMs();   // v31.3 desk clock
 
   std::lock_guard<std::mutex> lk(gJamesPetsMtx);
   JamesLoadPetsLocked();
@@ -857,7 +966,7 @@ bool ProceduralFaceDrawer::JamesPvtEdition()
 // Yes while he can show the sleep screen (on the charger, sleep screen on), so stars twinkle and the clock ticks.
 bool ProceduralFaceDrawer::JamesWantsFrames()
 {
-  return gJamesOnCharger && gJamesSleepMode.load() != 0;
+  return gJamesOnCharger && (gJamesSleepMode.load() != 0 || gJamesDeskClock.load() != 0);   // v31.3: + desk clock
 }
 
 // v29 debug: what the animation streamer did (shown in /dev/shm/jamesos_sleep)
@@ -983,6 +1092,73 @@ static void JamesUnlockNow(const char* key)
 
 // about every 2 seconds (from JamesMoodHue)
 
+// v31.3 weather: once every 30 minutes (and right after you pick a city), ask Open-Meteo for the
+// weather at the city saved in /data/data/jamesos/weather ("LAT LON c|f NAME"). Runs in vic-anim only.
+static void JamesWeatherNet()
+{
+  long long nextFetch = 0;
+  long settingsMtime = -1;
+  for (;;) {
+    struct stat st;
+    const long mt = (stat("/data/data/jamesos/weather", &st) == 0) ? (long)st.st_mtime : -1;
+    const long long now = (long long)std::time(nullptr);
+    if (mt < 0) {
+      gJamesWxCode = -1; gJamesWxAt = 0; settingsMtime = -1;
+      std::this_thread::sleep_for(std::chrono::seconds(20));
+      continue;
+    }
+    if (mt != settingsMtime) { settingsMtime = mt; nextFetch = 0; gJamesWxAt = 0; gJamesWxCode = -1; }
+    if (now >= nextFetch) {
+      float lat = 999.f, lon = 999.f;
+      char unit = 'c';
+      FILE* f = std::fopen("/data/data/jamesos/weather", "r");
+      if (f != nullptr) {
+        if (std::fscanf(f, "%f %f %c", &lat, &lon, &unit) != 3) { lat = 999.f; }
+        std::fclose(f);
+      }
+      bool ok = false;
+      if (lat >= -90.f && lat <= 90.f && lon >= -180.f && lon <= 180.f) {
+        char cmd[400];
+        std::snprintf(cmd, sizeof(cmd),
+                      "curl -s -m 20 'https://api.open-meteo.com/v1/forecast?latitude=%.2f&longitude=%.2f"
+                      "&current=temperature_2m,weather_code,is_day%s' 2>/dev/null",
+                      lat, lon, unit == 'f' ? "&temperature_unit=fahrenheit" : "");
+        std::string out;
+        FILE* p = popen(cmd, "r");
+        if (p != nullptr) {
+          char buf[512];
+          size_t n;
+          while ((n = std::fread(buf, 1, sizeof(buf), p)) > 0 && out.size() < 16384) { out.append(buf, n); }
+          pclose(p);
+        }
+        const size_t cur = out.find("\"current\":{");
+        if (cur != std::string::npos) {
+          auto num = [&](const std::string& key, double& v) {
+            const size_t at = out.find(key, cur);
+            return at != std::string::npos && std::sscanf(out.c_str() + at + key.size(), "%lf", &v) == 1;
+          };
+          double t = 0, c = 0, d = 1;
+          if (num("\"temperature_2m\":", t) && num("\"weather_code\":", c)) {
+            num("\"is_day\":", d);
+            const int ti = (int)(t + (t >= 0 ? 0.5 : -0.5));
+            gJamesWxTemp = ti; gJamesWxCode = (int)c; gJamesWxDay = (int)d; gJamesWxAt = now;
+            ok = true;
+            FILE* o = std::fopen("/dev/shm/jamesos_weather.tmp", "w");   // for the phone page
+            if (o != nullptr) {
+              std::fprintf(o, "%d %d %d %lld\n", ti, (int)c, (int)d, now);
+              std::fclose(o);
+              chmod("/dev/shm/jamesos_weather.tmp", 0644);
+              std::rename("/dev/shm/jamesos_weather.tmp", "/dev/shm/jamesos_weather");
+            }
+          }
+        }
+      }
+      nextFetch = now + (ok ? 1800 : 180);   // try again in 3 minutes when the internet is down
+    }
+    std::this_thread::sleep_for(std::chrono::seconds(10));
+  }
+}
+
 static void JamesRefreshRare()
 {
   const int today = gJamesDateKey;
@@ -1040,6 +1216,15 @@ static void JamesRefreshRare()
     const bool test = JamesFileExists(kJamesBlueMoonTestFile);
     gJamesBlueMoon = blue || test;
     gJamesBlueMoonTest = test && !blue;
+  }
+
+  {
+    static std::once_flag wxStarted;   // v31.3 weather: one fetcher, in the face program
+    std::call_once(wxStarted, []() {
+      std::string proc;
+      { std::ifstream c("/proc/self/comm"); std::getline(c, proc); }
+      if (proc == "vic-anim") { std::thread(JamesWeatherNet).detach(); }
+    });
   }
 
 }
@@ -2484,6 +2669,40 @@ bool ProceduralFaceDrawer::ApplyJamesExtras(Vision::ImageRGB565& output, bool di
           }
         }
       }
+      // v31.3: now and then a shooting star flies across his night sky (about every 1-3 minutes)
+      {
+        static long long nextShootMs = 0, shootStartMs = 0;
+        static f32 sx0 = 0.f, sy0 = 0.f, svx = 0.f, svy = 0.f;
+        if (nextShootMs == 0) { nextShootMs = sleepNowMs + 20000 + (long long)(uni(gen) * 60000.f); }
+        if (shootStartMs == 0 && sleepNowMs >= nextShootMs && sleepAmt >= 1.f) {
+          shootStartMs = sleepNowMs;
+          const bool leftward = uni(gen) < 0.5f;
+          sx0 = leftward ? (0.55f + 0.4f * uni(gen)) * (f32)W : (0.05f + 0.4f * uni(gen)) * (f32)W;
+          sy0 = (0.05f + 0.25f * uni(gen)) * (f32)H;
+          const f32 speed = (0.6f + 0.3f * uni(gen)) * (f32)W;   // pixels per second
+          svx = (leftward ? -1.f : 1.f) * speed * 0.88f;
+          svy = speed * 0.3f;
+        }
+        if (shootStartMs != 0) {
+          const f32 t = (f32)(sleepNowMs - shootStartMs) / 1000.f;
+          const f32 life = 1.2f;
+          if (t > life) {
+            shootStartMs = 0;
+            nextShootMs = sleepNowMs + 60000 + (long long)(uni(gen) * 120000.f);
+          } else {
+            const f32 fade = (t < 0.12f ? t / 0.12f : 1.f) * (t > life - 0.35f ? (life - t) / 0.35f : 1.f);
+            const f32 hx = sx0 + svx * t, hy = sy0 + svy * t;
+            const f32 len = std::sqrt(svx * svx + svy * svy);
+            const f32 ux = svx / len, uy = svy / len;
+            for (s32 k = 0; k < 20; ++k) {   // bright head, fading tail
+              const s32 x = (s32)(hx - ux * (f32)k), y = (s32)(hy - uy * (f32)k);
+              if (JamesInBounds(output, mask, x, y) && mask.GetRow(y)[x] < 32) {
+                JamesLightenPixel(output, x, y, fade * sleepAmt * (1.f - (f32)k / 20.f), 230, 235, 255);
+              }
+            }
+          }
+        }
+      }
       const s32 hour = gJamesHour;
       if ((mode == JamesSleepMode::Clock || mode == JamesSleepMode::Both) && hour >= 0) {
         const s32 h12 = (hour % 12 == 0) ? 12 : hour % 12;
@@ -2507,6 +2726,64 @@ bool ProceduralFaceDrawer::ApplyJamesExtras(Vision::ImageRGB565& output, bool di
         const std::string msg = "SET TIME ZONE";
         const s32 mw = JamesTextWidth(msg, 1);
         JamesDrawText(output, msg, (W - mw) / 2 + careX, std::max<s32>(2, (s32)(0.10f * H)) + careY, 1, 0.6f * sleepAmt, 170, 140, 255);
+      }
+      drew = true;
+    }
+  }
+
+  // ---------------- v31.3: DESK CLOCK - a big clock on his face while he sits on the charger ----------------
+  // Phone page -> Customize -> Desk clock. Every minute he shows his eyes for 8 seconds, and petting
+  // shows his eyes for 10 seconds. Asleep, the normal sleep screen takes over.
+  {
+    static f32 clockAmt = 0.f;
+    static long long lastClockMs = 0, cycleStartMs = 0;
+    const long long clockNowMs = JamesNowMs();
+    const f32 cdt = (lastClockMs == 0) ? 0.033f : Util::Clamp((f32)(clockNowMs - lastClockMs) / 1000.f, 0.f, 0.5f);
+    lastClockMs = clockNowMs;
+    const int deskMode = gJamesDeskClock.load();
+    const s32 hour = gJamesHour.load();
+    if (deskMode == 0 || !gJamesOnCharger) { cycleStartMs = 0; }
+    else if (cycleStartMs == 0) { cycleStartMs = clockNowMs; }
+    const bool petted = clockNowMs - gJamesLastPetMs.load() < 10000;
+    const bool eyesTurn = cycleStartMs != 0 && ((clockNowMs - cycleStartMs) % 68000) >= 60000;   // 60 s clock, 8 s eyes
+    const bool wantClock = deskMode != 0 && gJamesOnCharger && sleepAmt <= 0.f && !petted && !eyesTurn && hour >= 0;
+    clockAmt = Util::Clamp(clockAmt + (wantClock ? cdt / 0.6f : -cdt / 0.35f), 0.f, 1.f);
+    if (clockAmt > 0.f) {
+      // dim his eyes behind the clock
+      const f32 keep = 1.f - 0.92f * clockAmt;
+      for (s32 y = 0; y < H; ++y) {
+        Vision::PixelRGB565* row = output.GetRow(y);
+        for (s32 x = 0; x < W; ++x) {
+          row[x].SetValue((u8)(row[x].r() * keep), (u8)(row[x].g() * keep), (u8)(row[x].b() * keep));
+        }
+      }
+      const bool h24 = (deskMode == 2);
+      const s32 hh = h24 ? hour : ((hour % 12 == 0) ? 12 : hour % 12);
+      const bool colonOn = ((clockNowMs / 1000) % 2) == 0;
+      char buf[8];
+      std::snprintf(buf, sizeof(buf), h24 ? "%02d%c%02d" : "%d%c%02d", (int)hh, colonOn ? ':' : ' ', (int)gJamesMinute.load());
+      const std::string timeStr(buf);
+      const std::string ampm = h24 ? "" : ((hour < 12) ? "AM" : "PM");
+      s32 scale = 4;   // v31.3: 4 on both screens (5 was too big on the 1.0)
+      while (scale > 2 && JamesTextWidth(timeStr, scale) + (ampm.empty() ? 0 : 4 + JamesTextWidth(ampm, 2)) > W - 8) { --scale; }
+      const s32 tw = JamesTextWidth(timeStr, scale);
+      const s32 aw = ampm.empty() ? 0 : JamesTextWidth(ampm, 2);
+      s32 cx = 0, cy = 0;
+      if (gJamesCareOn) { const s32 m = gJamesMinute.load(); cx = (m * 7) % 9 - 4; cy = (m * 3) % 5 - 2; }   // Vector Care
+      const s32 x0 = (W - (tw + (aw ? 4 + aw : 0))) / 2 + cx;
+      const bool wx = gJamesWxCode.load() >= 0 && (long long)std::time(nullptr) - gJamesWxAt.load() < 3 * 3600;   // v31.3
+      const s32 y0 = (wx ? (H - (7 * scale + 9 + 14)) / 2 : (H - 7 * scale) / 2) + cy;
+      u8 cr = 140, cg = 220, cb = 255;               // soft sky blue
+      if (JamesIsHalloween()) { cr = 255; cg = 130; cb = 30; }
+      if (JamesIsChristmas()) { cr = 190; cg = 230; cb = 255; }
+      if (JamesIsLunar())     { cr = 255; cg = 200; cb = 70; }
+      JamesDrawText(output, timeStr, x0, y0, scale, 0.95f * clockAmt, cr, cg, cb);
+      if (!ampm.empty()) {
+        JamesDrawText(output, ampm, x0 + tw + 4, y0 + 7 * scale - 14, 2, 0.75f * clockAmt, cr, cg, cb);
+      }
+      if (wx) {   // v31.3: the weather under the time
+        JamesDrawWeatherRow(output, W / 2 + cx, y0 + 7 * scale + 9, gJamesWxTemp.load(), gJamesWxCode.load(),
+                            gJamesWxDay.load() != 0, clockAmt, cr, cg, cb);
       }
       drew = true;
     }

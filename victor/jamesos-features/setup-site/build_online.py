@@ -30,12 +30,12 @@ page = open(os.path.join(src, "templates", "main.ejs"), encoding="utf-8").read()
 for tag in ("<%= serverIp %>", "<%= networkIp %>", "<%= port %>"):
     page = page.replace(tag, "")
 if "<%" in page:
-    sys.exit("the page still has template tags - send Claude a screenshot")
+    sys.exit("the page still has template tags - send a screenshot")
 page = page.replace('"/static/', '"static/').replace("'/static/", "'static/")
 otas = "<script>window.JAMESOS_OTAS = " + json.dumps(urls) + ";</script>\n    "
 page = page.replace('<script src="static/js/rts.js"></script>', otas + '<script src="static/js/rts.js"></script>', 1)
 if "window.JAMESOS_OTAS" not in page:
-    sys.exit("couldn't add the OTA link to the page - send Claude a screenshot")
+    sys.exit("couldn't add the OTA link to the page - send a screenshot")
 open(os.path.join(out, "index.html"), "w", encoding="utf-8").write(page)
 open(os.path.join(out, ".nojekyll"), "w").close()
 lic = os.path.join(src, "LICENSE")

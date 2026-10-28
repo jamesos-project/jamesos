@@ -71,10 +71,15 @@ else:
     s = s.replace('<div id="serverIp" class="vec-hidden">', overlay + '      <div id="serverIp" class="vec-hidden">', 1)
 if 'class="jos-tip"' not in s or 'id="jamesWelcome"' not in s:
     sys.exit("couldn't add the JamesOS welcome screen or tip (different Vector Web Setup version?)")
-if 'class="jos-done-tip"' not in s:
+DONE_TIP = ('<p class="jos-done-tip">Tip: on a phone or computer on the same Wi-Fi, open '
+            '<b>http://vector-XXXX.local:8889/jamesos/</b> to change his settings. XXXX is the end of his name '
+            '(for Vector-P5Z6 that is vector-p5z6.local). It keeps working when his IP changes, so bookmark it. '
+            'If it doesn\'t open, use his IP instead: <b>http://HIS-IP:8889/jamesos/</b></p>')
+if 'class="jos-done-tip"' in s:
+    s = re.sub(r'<p class="jos-done-tip">.*?</p>', lambda m: DONE_TIP, s, count=1, flags=re.S)
+else:
     s = re.sub(r'(<div id="containerOtaComplete" class="vec-container">\s*<p>.*?</p>)',
-               r'\1\n          <p class="jos-done-tip">Tip: on a phone on the same Wi-Fi, open '
-               r'<b>http://HIS-IP:8889/jamesos/</b> to change his settings.</p>', s, count=1, flags=re.S)
+               lambda m: m.group(1) + "\n          " + DONE_TIP, s, count=1, flags=re.S)
 if s != o: write(f, s); changed.append(f + " (welcome, credits, logo)")
 
 # --- when the OTA is done, show the JamesOS "installed" screen (DDL's goes back to pairing)

@@ -83,7 +83,7 @@ set -e
 cd "$(dirname "$0")"
 
 # the JamesOS version name (shown on Vector's info screen as "OS: JamesOS v21")
-JAMESOS_RELEASE="v31.2"
+JAMESOS_RELEASE="v31.3"
 
 if [[ "$1" == "use" ]]; then
   # ./jamesos.sh use 1.0   (a name from ./jamesos.sh find)   or   ./jamesos.sh use 192.168.0.116
@@ -674,8 +674,8 @@ case "$1" in
     [[ -f "$FILE" ]] || { echo "$FILE is missing"; exit 1; }
     echo "== Sending $FILE to Vector =="
     $SSH "$RW cat > $CUSTOM.tmp && mv $CUSTOM.tmp $CUSTOM && sync; R=\$?; $RO; exit \$R" < "$FILE" \
-      || { echo "Couldn't write to /persist on this Vector. Send Claude a screenshot."; exit 1; }
-    $SSH "$HIDDEN" || echo "(note: couldn't update the early-boot copy - send Claude a screenshot)"
+      || { echo "Couldn't write to /persist on this Vector. Send a screenshot."; exit 1; }
+    $SSH "$HIDDEN" || echo "(note: couldn't update the early-boot copy - send a screenshot)"
     echo "Done! Reboot Vector to see it:  ./jamesos.sh ssh   then type: reboot"
     done_msg
     ;;
@@ -984,9 +984,9 @@ PY
       echo "   JamesOS and WireOS both changed: $(echo $BOTH)"
       echo "   -> using the whole JamesOS file for those (the same file that works on your robots)"
       for f in $BOTH; do
-        git -C "$VB" checkout -q --theirs -- "$f" && git -C "$VB" add -- "$f" || { git -C "$VB" merge --abort; echo "Couldn't use the JamesOS version of $f. Nothing was built. Send Claude a screenshot."; exit 1; }
+        git -C "$VB" checkout -q --theirs -- "$f" && git -C "$VB" add -- "$f" || { git -C "$VB" merge --abort; echo "Couldn't use the JamesOS version of $f. Nothing was built. Send a screenshot."; exit 1; }
       done
-      git -C "$VB" -c core.editor=true commit -q --no-edit || { git -C "$VB" merge --abort; echo "Couldn't finish mixing JamesOS into WireOS. Nothing was built. Send Claude a screenshot."; exit 1; }
+      git -C "$VB" -c core.editor=true commit -q --no-edit || { git -C "$VB" merge --abort; echo "Couldn't finish mixing JamesOS into WireOS. Nothing was built. Send a screenshot."; exit 1; }
     fi
 
     echo "== 2/5 Private extras OFF =="
@@ -1005,7 +1005,7 @@ PY
     UCF="$VB/platform/config/CMakeLists.txt"
     UENV="$VB/platform/config/development/etc-template/update-engine.env.in"
     OTAHOST=$(cat jamesos/ota-host.txt 2>/dev/null)
-    grep -q 'https://ota.pvic.xyz/vic/' "$UCF" || { echo "Couldn't find WireOS's update server setting - stopping, nothing was built. Send Claude a screenshot."; exit 1; }
+    grep -q 'https://ota.pvic.xyz/vic/' "$UCF" || { echo "Couldn't find WireOS's update server setting - stopping, nothing was built. Send a screenshot."; exit 1; }
     if [[ "$OTAHOST" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
       sed -i "s#https://ota.pvic.xyz/vic/#http://$OTAHOST/vic/#g" "$UCF"
       echo "   Updates from: http://$OTAHOST/vic/ (your server)"
@@ -1089,9 +1089,9 @@ RECIPE
     echo "rampost vector-motd jamesos-keep" > "$WOS/wire-cleaning"
 
     echo "== 4/5 Building the OTA (vicos-*.${N}d) - about 20-60 minutes. Keep the charger in! =="
-    ( cd "$WOS" && ./build/build.sh -bt dev -v "$N" ) || { echo "The build stopped with an error. Send Claude a screenshot of the red lines."; exit 1; }
+    ( cd "$WOS" && ./build/build.sh -bt dev -v "$N" ) || { echo "The build stopped with an error. Send a screenshot of the red lines."; exit 1; }
     OTA=$(ls -t "$WOS"/_build/vicos-*."$N"d.ota 2>/dev/null | head -1)
-    [[ -f "$OTA" ]] || { echo "The build finished but no .ota file was made - send Claude a screenshot."; exit 1; }
+    [[ -f "$OTA" ]] || { echo "The build finished but no .ota file was made - send a screenshot."; exit 1; }
     mkdir -p jamesos; echo "$N" > "$NUMF"
     RPB=$(find "$WOS/poky/build/tmp-glibc/work" -path '*rampost*/image/usr/bin/rampost' 2>/dev/null | head -1)
     if [[ -n "$RPB" ]] && python3 -c "import sys; sys.exit(0 if open(sys.argv[2],'rb').read() in open(sys.argv[1],'rb').read() else 1)" "$RPB" "$PIC"; then
@@ -1147,7 +1147,7 @@ RECIPE
       sleep 10
     done
     if [[ -n "$HAVE" ]]; then
-      echo "He's on, but still on $HAVE (not $WANT) - the OTA didn't install. Send Claude a screenshot."
+      echo "He's on, but still on $HAVE (not $WANT) - the OTA didn't install. Send a screenshot."
     else
       echo "He hasn't come back on $T yet. Look at his screen; if he's on, his IP may have changed: ./jamesos.sh find"
     fi
@@ -1168,12 +1168,12 @@ RECIPE
       [[ -f "$SD/site/js/rts.js" ]] || { echo "Run ./jamesos.sh setup-site once first (it builds the site), then Ctrl+C and run this again."; exit 1; }
       echo "== Making the online JamesOS Setup =="
       python3 jamesos-features/setup-site/patch_vws.py "$SD" || exit 1
-      ( cd "$SD" && node vector-web-setup.js configure --reset-setting >/dev/null ) || { echo "configure failed - send Claude a screenshot"; exit 1; }
+      ( cd "$SD" && node vector-web-setup.js configure --reset-setting >/dev/null ) || { echo "configure failed - send a screenshot"; exit 1; }
       python3 jamesos-features/setup-site/build_online.py "$SD" "$OUT" "$URL" || exit 1
       echo "== Putting it online =="
       git -C "$OUT" add -A
       git -C "$OUT" commit -qm "JamesOS Setup: $(basename "$URL")" || echo "(nothing changed)"
-      git -C "$OUT" push -q || { echo "Push failed - send Claude a screenshot"; exit 1; }
+      git -C "$OUT" push -q || { echo "Push failed - send a screenshot"; exit 1; }
       ORG=$(git -C "$OUT" remote get-url origin | sed -E 's#.*github.com[:/]([^/]+)/([^/.]+).*#\1#')
       REPO=$(git -C "$OUT" remote get-url origin | sed -E 's#.*github.com[:/]([^/]+)/([^/.]+).*#\2#')
       echo "Done. The site updates in about a minute at:  https://$ORG.github.io/$REPO/"
@@ -1199,11 +1199,11 @@ RECIPE
     fi
     if [[ ! -d "$SD/node_modules" ]]; then
       echo "== Installing its parts (first time only, about a minute) =="
-      ( cd "$SD" && npm install --no-audit --no-fund ) || { echo "npm install failed - send Claude a screenshot"; exit 1; }
+      ( cd "$SD" && npm install --no-audit --no-fund ) || { echo "npm install failed - send a screenshot"; exit 1; }
     fi
     echo "== Making it JamesOS Setup =="
     python3 jamesos-features/setup-site/patch_vws.py "$SD" || exit 1
-    ( cd "$SD" && node vector-web-setup.js configure --reset-setting >/dev/null ) || { echo "configure failed - send Claude a screenshot"; exit 1; }
+    ( cd "$SD" && node vector-web-setup.js configure --reset-setting >/dev/null ) || { echo "configure failed - send a screenshot"; exit 1; }
     FW="$SD/site/firmware/jamesos"
     mkdir -p "$FW"; rm -f "$FW"/*.ota
     NAME="jamesos-$(basename "$OTA" .ota | sed 's/^vicos-//').ota"
@@ -1213,7 +1213,7 @@ RECIPE
     SPID=$!
     trap 'kill $SPID 2>/dev/null' EXIT INT TERM
     sleep 2
-    kill -0 $SPID 2>/dev/null || { cat /tmp/jamesos-setup.log; echo "The setup site didn't start - send Claude a screenshot"; exit 1; }
+    kill -0 $SPID 2>/dev/null || { cat /tmp/jamesos-setup.log; echo "The setup site didn't start - send a screenshot"; exit 1; }
     echo
     echo "JamesOS Setup is running. It installs: $NAME"
     echo "  Open Chrome on Windows:  http://localhost:$PORT"
@@ -1300,7 +1300,7 @@ RECIPE
       for OLD in jamesos-features/splash/wireos_splash.raw jamesos-features/splash/splash_*.raw; do
         OUT=$(python3 jamesos-features/splash/patch_rampost.py "$TMP/rampost.orig" "$OLD" "$PIC" "$TMP/rampost.new" 2>/dev/null) && { OFFSET=$(echo "$OUT" | grep -o '[0-9]\+' | head -n 1); break; }
       done
-      [[ -n "$OFFSET" ]] || { echo "Couldn't find the old startup picture inside rampost - send Claude a screenshot"; rm -rf "$TMP"; exit 1; }
+      [[ -n "$OFFSET" ]] || { echo "Couldn't find the old startup picture inside rampost - send a screenshot"; rm -rf "$TMP"; exit 1; }
       echo "$OFFSET" > "$TMP/splash_offset"; echo "$TODAY" > "$TMP/splash_current"
       SUM=$(md5sum < "$TMP/rampost.new" | cut -d' ' -f1)
       $SSH "cat > /data/rampost.new" < "$TMP/rampost.new"
@@ -1315,7 +1315,7 @@ RECIPE
         echo "Startup picture: seasonal (today: $(basename "$TODAY" .raw)). It changes by itself with the seasons."
         echo "You'll see it on the next reboot (./jamesos.sh ssh, then: reboot)."
       else
-        echo "Something went wrong: $RES - send Claude a screenshot"
+        echo "Something went wrong: $RES - send a screenshot"
       fi
       done_msg
       exit 0
@@ -1333,7 +1333,7 @@ RECIPE
     for OLD in jamesos-features/splash/wireos_splash.raw jamesos-features/splash/splash_sparkle.raw; do
       python3 jamesos-features/splash/patch_rampost.py "$TMP/rampost.orig" "$OLD" "$PIC" "$TMP/rampost.new" 2>/dev/null && { OK=1; break; }
     done
-    [[ $OK = 1 ]] || { echo "Couldn't find the old startup picture inside rampost - send Claude a screenshot"; rm -rf "$TMP"; exit 1; }
+    [[ $OK = 1 ]] || { echo "Couldn't find the old startup picture inside rampost - send a screenshot"; rm -rf "$TMP"; exit 1; }
     SUM=$(md5sum < "$TMP/rampost.new" | cut -d' ' -f1)
     $SSH "cat > /data/rampost.new" < "$TMP/rampost.new"
     rm -rf "$TMP"

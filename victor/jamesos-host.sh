@@ -85,7 +85,7 @@ case "$1" in
     echo "== Connecting to $IP (type yes if it asks) =="
     rs true || { echo "Can't log in to root@$IP. Is the droplet 'Running'? Did you add your SSH key to it?"; exit 1; }
     echo "== Setting up the server (about 1-2 minutes) =="
-    rs 'bash -s' <<'EOF' || { echo "Setup failed - send Claude a screenshot"; exit 1; }
+    rs 'bash -s' <<'EOF' || { echo "Setup failed - send a screenshot"; exit 1; }
 set -e
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq
@@ -144,7 +144,7 @@ EOF
     code=$(curl -s -o /dev/null -w '%{http_code} %{size_download}' -r 0-1023 "$url")
     case "$code" in
       206*|200*) echo "OK - the link works with plain http and no redirect (what Vector needs)." ;;
-      *) echo "Problem: the server answered '$code'. Send Claude a screenshot." ;;
+      *) echo "Problem: the server answered '$code'. Send a screenshot." ;;
     esac
     ;;
   release)
@@ -152,7 +152,7 @@ EOF
     VER=$(basename "$(newest_ota)" .ota); VER=${VER#vicos-}
     echo
     echo "== Releasing $VER to every older JamesOS robot =="
-    rs "bash -s '$VER'" <<<"$LINK_OLDER" || { echo "Release failed - send Claude a screenshot"; exit 1; }
+    rs "bash -s '$VER'" <<<"$LINK_OLDER" || { echo "Release failed - send a screenshot"; exit 1; }
     echo
     echo "Done. Robots on the charger get $VER within about 1-2 hours, then restart at night (1-5 AM)."
     echo "Something wrong? ./jamesos-host.sh pause   stops it right away."
